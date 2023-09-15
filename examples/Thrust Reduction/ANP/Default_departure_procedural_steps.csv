@@ -1,0 +1,9 @@
+ACFT_ID,Profile_ID,Stage Length,Step Number,Step Type,Thrust Rating,Flap_ID,End Point Altitude (ft),Rate Of Climb (ft/min),End Point CAS (kt),Accel Percentage (%)
+7478,DEFAULT,8,1,Takeoff,MaxTakeoff,F_10,,,,
+7478,DEFAULT,8,2,Climb,MaxTakeoff,F_10,1000,,,
+7478,DEFAULT,8,3,Accelerate,MaxClimb,F_10,,,235,55
+7478,DEFAULT,8,4,Accelerate,MaxClimb,F_5,,,265,55
+7478,DEFAULT,8,5,Accelerate,MaxClimb,F_1,,,280,55
+7478,DEFAULT,8,6,Climb,MaxClimb,F_0,3000,,,
+7478,DEFAULT,8,7,Accelerate,MaxClimb,F_0,,,295,50
+7478,DEFAULT,8,8,Climb,MaxClimb,F_0,10000,,,

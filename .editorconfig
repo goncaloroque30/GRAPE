@@ -1,0 +1,18 @@
+root = true
+
+[*]
+# Visual Studio
+spelling_languages = en-us
+spelling_checkable_types = strings,identifiers,comments
+spelling_error_severity = information
+
+# EditorConfig
+indent_style = space
+indent_size = 4
+tab_width = 4
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.py]
+max_line_length = 120

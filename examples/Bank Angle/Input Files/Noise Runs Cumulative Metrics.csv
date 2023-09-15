@@ -1,0 +1,2 @@
+Scenario ID,Performance Run ID,Noise Run ID,ID,Threshold (dB),Averaging Time Constant (dB),Start Time,End Time,Number Above Thresholds (dB)
+Bank Angle,Performance Run,Noise Run,SEL,0,0,2023-01-01 00:00:00,2023-01-01 00:00:00,

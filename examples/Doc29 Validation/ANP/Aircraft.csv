@@ -1,0 +1,4 @@
+Aircraft Identifier,Description,Engine Type,Number of Engines,Weight Class,Owner Category,Maximum Gross Takeoff Weight (lb),Maximum Gross Landing Weight (lb),Maximum Landing Distance (ft),Maximum Sea Level Static Thrust (lb),Noise Chapter,NPD Identifier,Power Parameter,Approach Spectral Class Identifier,Departure Spectral Class Identifier,Lateral Directivity Identifier
+JETF,ECAC Doc.29 Reference Case Aircraft with two_fuselage-mounted_turbofan_engines,Jet,2,Large,NA,165347,143300,4921,25000,NA,JETF,CNT (lb),204,133,Fuselage
+JETW,ECAC_Doc.29_reference_case_aircraft_with_wing-mounted_turbofan_engines,Jet,2,Large,NA,165347,143300,4921,25000,NA,JETW,CNT (lb),205,103,Wing
+PROP,ECAC_Doc.29_reference_case_aircraft_with_wing-mounted_turboprop_engines,Turboprop,2,Large,NA,165347,143300,4921,16500,NA,PROP,Shaft_Horse_Power_(%),234,112,Prop

@@ -1,0 +1,4 @@
+Scenario ID,ID,Operation,Type
+Thrust Reduction,Dep100_100,Departure,Flight
+Thrust Reduction,Dep80_90,Departure,Flight
+Thrust Reduction,Dep90_100,Departure,Flight

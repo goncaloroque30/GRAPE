@@ -1,0 +1,2 @@
+ACFT_ID,Description,Engine Type,Number Of Engines,Weight Class,Owner Category,Max Gross Takeoff Weight (lb),Max Gross Landing Weight (lb),Max Landing Distance (ft),Max Sea Level Static Thrust (lb),Noise Chapter,NPD_ID,Power Parameter,Approach Spectral Class ID,Departure Spectral Class ID,Lateral Directivity Identifier
+7478,Boeing 747-8F / GEnx-2B67,Jet,4,Heavy,Commercial,987000,757000,7900,68000,4,GENX67,CNT (lb),205,107,Wing

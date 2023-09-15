@@ -1,0 +1,3 @@
+ID,Number of Engines,Maximum Sea Level Static Thrust (lbf),Engine Breakpoint Temperature (C),Doc29 Performance ID,SFI ID,LTO ID,Doc29 Noise ID,Doc29 Noise Delta Arrival,Doc29 Noise Delta Departure
+JETF,2,25000.000000000004,30,JETF,,,JETF,0,0
+JETW,2,25000.000000000004,30,JETW,,,JETW,0,0

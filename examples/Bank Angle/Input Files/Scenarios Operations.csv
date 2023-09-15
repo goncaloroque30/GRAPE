@@ -1,0 +1,7 @@
+Scenario ID,ID,Operation,Type
+Bank Angle,arr2000,Arrival,Flight
+Bank Angle,arr5000,Arrival,Flight
+Bank Angle,arr8000,Arrival,Flight
+Bank Angle,dep2000,Departure,Flight
+Bank Angle,dep5000,Departure,Flight
+Bank Angle,dep8000,Departure,Flight
