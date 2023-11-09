@@ -1,0 +1,2 @@
+ID,# Operations,# Arrivals,# Departures,# Flights,# Tracks 4D,# Arrival Flights,# Departure Flights,# Arrival Tracks 4D,# Departure Tracks 4D,Start Time,End Time
+Reference Scenario,8,4,4,8,0,4,4,0,0,2023-09-04 00:11:14,2023-09-04 00:11:14
