@@ -187,9 +187,21 @@ namespace GRAPE {
     bool NoiseRun::valid() const {
         bool valid = true;
 
+        if (parentScenario().flightsSize() != 0 && parentPerformanceRun().PerfRunSpec.FlightsPerformanceMdl == PerformanceModel::None)
+        {
+            Log::dataLogic()->error("Running noise run '{}' of performance run '{}' of scenario '{}'. Flights performance model '{}' does not support noise runs.", Name, parentPerformanceRun().Name, parentScenario().Name, PerformanceModelTypes.toString(PerformanceModel::None));
+            valid = false;
+        }
+
+        if (parentScenario().tracks4dSize() != 0 && !parentPerformanceRun().PerfRunSpec.Tracks4dCalculatePerformance)
+        {
+            Log::dataLogic()->error("Running noise run '{}' of performance run '{}' of scenario '{}'. Tracks 4D performance calculation must be activated for noise to be estimated.", Name, parentPerformanceRun().Name, parentScenario().Name);
+            valid = false;
+        }
+
         if (NsRunSpec.ReceptSet->empty())
         {
-            Log::dataLogic()->warn("Running noise run '{}' of performance run '{}' of scenario '{}'. Receptor set generates no receptors.", Name, parentPerformanceRun().Name, parentScenario().Name);
+            Log::dataLogic()->error("Running noise run '{}' of performance run '{}' of scenario '{}'. Receptor set generates no receptors.", Name, parentPerformanceRun().Name, parentScenario().Name);
             valid = false;
         }
 
@@ -204,7 +216,7 @@ namespace GRAPE {
                     log(std::format("Arrival flight '{}' with aircraft '{}' has no Doc29 noise entry selected.", flight.get().Name, acft.Name));
                     valid = false;
                 }
-                else if (!acft.Doc29Ns->valid())
+                else if (!acft.Doc29Ns->validArrival())
                 {
                     log(std::format("Arrival flight '{}' with aircraft '{}' and Doc29 noise entry '{}' has invalid NPD data.", flight.get().Name, acft.Name, acft.Doc29Ns->Name));
                     valid = false;
@@ -219,7 +231,7 @@ namespace GRAPE {
                     log(std::format("Departure flight '{}' with aircraft '{}' has no Doc29 noise entry selected.", flight.get().Name, flight.get().aircraft().Name));
                     valid = false;
                 }
-                else if (!acft.Doc29Ns->valid())
+                else if (!acft.Doc29Ns->validDeparture())
                 {
                     log(std::format("Departure flight '{}' with aircraft '{}' and Doc29 noise entry '{}' has invalid NPD data.", flight.get().Name, acft.Name, acft.Doc29Ns->Name));
                     valid = false;
@@ -234,7 +246,7 @@ namespace GRAPE {
                     log(std::format("Arrival track 4D '{}' with aircraft '{}' has no Doc29 noise entry selected.", track4d.get().Name, acft.Name));
                     valid = false;
                 }
-                else if (!acft.Doc29Ns->valid())
+                else if (!acft.Doc29Ns->validArrival())
                 {
                     log(std::format("Arrival track 4D '{}' with aircraft '{}' and Doc29 noise entry '{}' has invalid NPD data.", track4d.get().Name, acft.Name, acft.Doc29Ns->Name));
                     valid = false;
@@ -249,7 +261,7 @@ namespace GRAPE {
                     log(std::format("Departure track 4D '{}' with aircraft '{}' has no Doc29 noise entry selected.", track4d.get().Name, acft.Name));
                     valid = false;
                 }
-                else if (!acft.Doc29Ns->valid())
+                else if (!acft.Doc29Ns->validDeparture())
                 {
                     log(std::format("Departure track 4D '{}' with aircraft '{}' and Doc29 noise entry '{}' has invalid NPD data.", track4d.get().Name, acft.Name, acft.Doc29Ns->Name));
                     valid = false;

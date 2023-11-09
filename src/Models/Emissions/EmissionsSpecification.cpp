@@ -5,6 +5,35 @@
 #include "EmissionsSpecification.h"
 
 namespace GRAPE {
+    void EmissionsSpecification::setLTOCycle(LTOPhase Phase, double Seconds) {
+        if (!(Seconds >= 0))
+            throw GrapeException(std::format("The number of seconds for LTO phase '{}' must be at least 0.", LTOPhases.toString(Phase)));
+
+        LTOCycle.at(magic_enum::enum_integer(Phase)) = Seconds;
+    }
+
+
+    void EmissionsSpecification::setParticleEffectiveDensity(double ParticleEffectiveDensityIn) {
+        if (!(ParticleEffectiveDensityIn > 0.0))
+            throw GrapeException("Particle effective density must be higher than 0.");
+
+        ParticleEffectiveDensity = ParticleEffectiveDensityIn;
+    }
+
+    void EmissionsSpecification::setParticleGeometricStandardDeviation(double ParticleGeometricStandardDeviationIn) {
+        if (!(ParticleGeometricStandardDeviationIn > 0.0))
+            throw GrapeException("Particle geometric standard deviation must be higher than 0.");
+
+        ParticleGeometricStandardDeviation = ParticleGeometricStandardDeviationIn;
+    }
+
+    void EmissionsSpecification::setParticleGeometricMeanDiameter(LTOPhase Phase, double GeometricMeanDiameter) {
+        if (!(GeometricMeanDiameter > 0))
+            throw GrapeException(std::format("Particle geometric mean diameter for LTO phase '{}' must be higher than 0.", LTOPhases.toString(Phase)));
+
+        ParticleGeometricMeanDiameter.at(magic_enum::enum_integer(Phase)) = GeometricMeanDiameter;
+    }
+
     void EmissionsSpecification::setFilterMinimumAltitude(double MinimumAltitudeIn) {
         if (std::isnan(MinimumAltitudeIn))
             throw GrapeException("Minimum altitude must be given.");

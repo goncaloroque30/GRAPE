@@ -43,6 +43,14 @@ namespace GRAPE {
     constexpr double toGrams(double Kilograms) { return Kilograms * 1000.0; }
     constexpr double fromGrams(double Grams) { return Grams / toGrams(1.0); }
 
+    // Milligrams
+    constexpr double toMilligrams(double Kilograms) { return Kilograms * 1e6; }
+    constexpr double fromMilligrams(double Milligrams) { return Milligrams / toMilligrams(1.0); }
+
+    // Micrograms
+    constexpr double toMicrograms(double Kilograms) { return Kilograms * 1e9; }
+    constexpr double fromMicrograms(double Micrograms) { return Micrograms / toMicrograms(1.0); }
+
     // Pounds
     constexpr double toPounds(double Kilograms) { return Kilograms * 2.204623; }
     constexpr double fromPounds(double Pounds) { return Pounds / toPounds(1.0); }
@@ -72,6 +80,14 @@ namespace GRAPE {
     // Grams per Kilogram
     constexpr double toGramsPerKilogram(double KilogramsPerKilogram) { return toGrams(KilogramsPerKilogram); }
     constexpr double fromGramsPerKilogram(double GramsPerKilogram) { return fromGrams(GramsPerKilogram); }
+
+    // Milligrams per Kilogram
+    constexpr double toMilligramsPerKilogram(double KilogramsPerKilogram) { return toMilligrams(KilogramsPerKilogram); }
+    constexpr double fromMilligramsPerKilogram(double MilligramsPerKilogram) { return fromMilligrams(MilligramsPerKilogram); }
+
+    // Micrograms per Kilogram
+    constexpr double toMicrogramsPerKilogram(double KilogramsPerKilogram) { return toMicrograms(KilogramsPerKilogram); }
+    constexpr double fromMicrogramsPerKilogram(double MicrogramsPerKilogram) { return fromMicrograms(MicrogramsPerKilogram); }
 
     // Pounds per Pound
     constexpr double toPoundsPerPound(double KilogramsPerKilogram) { return toPounds(KilogramsPerKilogram) / toPounds(1.0); }
@@ -162,6 +178,10 @@ namespace GRAPE {
     constexpr double fromBar(double Bar) { return Bar / toBar(1.0); }
 
     /// Force (Newtons)
+    // Kilonewtons
+    constexpr double fromKilonewtons(double Kilonewtons) { return Kilonewtons * 1000.0; }
+    constexpr double toKilonewtons(double Newtons) { return Newtons / fromKilonewtons(1.0); }
+
     // Pounds of Force
     constexpr double fromPoundsOfForce(double PoundsOfForce) { return PoundsOfForce * fromPounds(1.0) * Constants::g0; }
     constexpr double toPoundsOfForce(double Newtons) { return Newtons / fromPoundsOfForce(1.0); }

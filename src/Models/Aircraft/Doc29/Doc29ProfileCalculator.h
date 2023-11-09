@@ -4,19 +4,21 @@
 
 #include "Doc29Profile.h"
 
-#include "Airport/RouteOutput.h"
-#include "Airport/Runway.h"
-#include "Aircraft/Aircraft.h"
-#include "Base/Base.h"
 #include "Performance/ProfileOutput.h"
 
 namespace GRAPE {
+    class CoordinateSystem;
+    class Atmosphere;
+    class Doc29Aircraft;
+    class Runway;
+    class RouteOutput;
+
     /**
     * @brief Visitor class to calculate the ProfileOutput of a Doc29ProfileArrival.
     */
     struct Doc29ProfileArrivalCalculator : Doc29ProfileArrivalVisitor {
     public:
-        Doc29ProfileArrivalCalculator(const CoordinateSystem& CsIn, const Atmosphere& AtmIn, const Aircraft& AcftIn, const Runway& RwyIn, const RouteOutput& RteOutputIn, double WeightIn);
+        Doc29ProfileArrivalCalculator(const CoordinateSystem& CsIn, const Atmosphere& AtmIn, const Doc29Aircraft& Doc29Acft, const Runway& RwyIn, const RouteOutput& RteOutputIn, double WeightIn, double EngineCountIn);
 
         std::optional<ProfileOutput> calculate(const Doc29ProfileArrival& Prof);
 
@@ -25,11 +27,12 @@ namespace GRAPE {
 
         const CoordinateSystem& Cs;
         const Atmosphere& Atm;
-        const Aircraft& Acft;
+        const Doc29Aircraft& Doc29Acft;
         const Runway& Rwy;
         const RouteOutput& RteOutput;
 
         double Weight = Constants::NaN;
+        double EngineCount = Constants::NaN;
 
         ProfileOutput ProfOutput;
     private:
@@ -46,7 +49,7 @@ namespace GRAPE {
     */
     struct Doc29ProfileDepartureCalculator : Doc29ProfileDepartureVisitor {
     public:
-        Doc29ProfileDepartureCalculator(const CoordinateSystem& CsIn, const Atmosphere& AtmIn, const Aircraft& AcftIn, const Runway& RwyIn, const RouteOutput& RteOutputIn, double WeightIn, double ThrustPercentageTakeoffIn, double ThrustPercentageClimbIn);
+        Doc29ProfileDepartureCalculator(const CoordinateSystem& CsIn, const Atmosphere& AtmIn, const Doc29Aircraft& Doc29PerfIn, const Runway& RwyIn, const RouteOutput& RteOutputIn, double WeightIn, double EngineCountIn, double ThrustPercentageTakeoffIn, double ThrustPercentageClimbIn);
 
         std::optional<ProfileOutput> calculate(const Doc29ProfileDeparture& Prof);
 
@@ -55,11 +58,12 @@ namespace GRAPE {
 
         const CoordinateSystem& Cs;
         const Atmosphere& Atm;
-        const Aircraft& Acft;
+        const Doc29Aircraft& Doc29Acft;
         const Runway& Rwy;
         const RouteOutput& RteOutput;
 
         double Weight = Constants::NaN;
+        double EngineCount = Constants::NaN;
         double ThrustPercentageTakeoff = Constants::NaN;
         double ThrustPercentageClimb = Constants::NaN;
 

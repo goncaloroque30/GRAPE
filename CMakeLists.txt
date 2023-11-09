@@ -51,12 +51,12 @@ option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 include(InstallRequiredSystemLibraries)
 
 option(GRAPE_BUILD_TESTS "Build the tests executable" OFF)
-option(GRAPE_BUILD_SCRIPTS "Run the build scripts" OFF)
+if(GRAPE_BUILD_TESTS)
+    enable_testing()
+endif()
 
 find_package(Vulkan REQUIRED)
-
-include(GNUInstallDirs)
-set(CMAKE_INSTALL_BINDIR "./")
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 #---------------------------
 # Add 3rd Party Targets
@@ -66,33 +66,10 @@ add_subdirectory(vendor)
 message(STATUS "Configuring vendor projects - done")
 
 #---------------------------
-# Run Scripts
+# Generator Expressions for Build Time
 #---------------------------
-if (GRAPE_BUILD_SCRIPTS)
-	find_package(Python3 COMPONENTS Interpreter)
-	if(Python3_FOUND)
-        message(STATUS "Running python scripts")
-       
-        # Schemas
-		execute_process(COMMAND ${Python3_EXECUTABLE} "${GRAPE_DIR_SCRIPTS}/GenerateSchemaSourceFiles.py" "${GRAPE_DIR_RES}/files/empty.grp" "${GRAPE_DIR_SRC}/Schema" "Schema" "GRAPE::Schema")
-		execute_process(COMMAND ${Python3_EXECUTABLE} "${GRAPE_DIR_SCRIPTS}/GenerateSchemaSourceFiles.py" "${GRAPE_DIR_RES}/files/empty.gpkg" "${GRAPE_DIR_SRC}/Schema" "SchemaGpkg" "GRAPE::Schema::GPKG")
-
-        # Embedded SQLite Schemas
-        execute_process(COMMAND ${Python3_EXECUTABLE} "${GRAPE_DIR_SCRIPTS}/Bin2Header.py" "${GRAPE_DIR_RES}/files/empty.grp" "${GRAPE_DIR_SRC}/Study/GrapeSchema.embed")
-        execute_process(COMMAND ${Python3_EXECUTABLE} "${GRAPE_DIR_SCRIPTS}/Bin2Header.py" "${GRAPE_DIR_RES}/files/empty.gpkg" "${GRAPE_DIR_SRC}/App/Embed/GrapeGeopackageSchema.embed")
-
-        # Embedded Fonts
-        execute_process(COMMAND ${Python3_EXECUTABLE} "${GRAPE_DIR_SCRIPTS}/Bin2Header.py" "${GRAPE_DIR_RES}/Fonts/Roboto-Medium.ttf" "${GRAPE_DIR_SRC}/App/Embed/RobotoMedium.embed")
-        execute_process(COMMAND ${Python3_EXECUTABLE} "${GRAPE_DIR_SCRIPTS}/Bin2Header.py" "${GRAPE_DIR_RES}/Fonts/fa-solid-900.ttf" "${GRAPE_DIR_SRC}/App/Embed/FaSolid.embed")
-
-        # Embedded Images
-        execute_process(COMMAND ${Python3_EXECUTABLE} "${GRAPE_DIR_SCRIPTS}/Bin2Header.py" "${GRAPE_DIR_RES}/Icon/Default.png" "${GRAPE_DIR_SRC}/App/Embed/DefaultImage.embed")
-        execute_process(COMMAND ${Python3_EXECUTABLE} "${GRAPE_DIR_SCRIPTS}/Bin2Header.py" "${GRAPE_DIR_RES}/Icon/GrapeIcon256.png" "${GRAPE_DIR_SRC}/App/Embed/GrapeIcon256.embed")
-        execute_process(COMMAND ${Python3_EXECUTABLE} "${GRAPE_DIR_SCRIPTS}/Bin2Header.py" "${GRAPE_DIR_RES}/Icon/GrapeIcon16.png" "${GRAPE_DIR_SRC}/App/Embed/GrapeIcon16.embed")
-
-        message(STATUS "Running python scripts - done")
-	endif()
-endif()
+set(IS_MSVC "$<CXX_COMPILER_ID:MSVC>")
+set(IS_WINDOWS "$<STREQUAL:${CMAKE_SYSTEM_NAME},Windows>")
 
 #---------------------------
 # Add GRAPE Targets

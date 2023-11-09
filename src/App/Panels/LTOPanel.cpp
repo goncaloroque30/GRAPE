@@ -110,7 +110,7 @@ namespace GRAPE {
                 if (UI::inputText("LTOEngineId", ltoEngine.Name, ltoEngine.Name != ltoEngineId && study.LTOEngines().contains(ltoEngine.Name), "LTO Engine Name", std::format("The LTO Engine '{}' already exists in this study", ltoEngine.Name)))
                     if (ltoEngine.Name != ltoEngineId)
                         action = [&] { study.LTOEngines.updateKey(ltoEngine, ltoEngineId); };
-                if (ImGui::IsItemClicked())
+                if (UI::isItemClicked())
                     select(ltoEngine);
 
                 ImGui::EndDisabled(); // Not editable
@@ -133,7 +133,35 @@ namespace GRAPE {
 
             ImGui::BeginDisabled(study.Blocks.notEditable(selectedLTOEngine));
 
-            if (UI::beginTable("LTO Engine Values", 6))
+            // Maximum Sea Level Static Thrust
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextDisabled("Maximum sea level static thrust:");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
+            if (UI::inputDouble("Maximum sea level static thrust", selectedLTOEngine.MaximumSeaLevelStaticThrust, 1.0, Constants::NaN, set.ThrustUnits))
+                update = true;
+
+            // Mixed Nozzle Engine
+            ImGui::SameLine(0.0, UI::g_StandardItemWidth);
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextDisabled("Mixed Nozzle:");
+            ImGui::SameLine();
+            if (ImGui::Checkbox("##MixedNozzle", &selectedLTOEngine.MixedNozzle))
+                update = true;
+
+            // Bypass Ratio
+            if (selectedLTOEngine.MixedNozzle)
+            {
+                ImGui::SameLine(0.0, UI::g_StandardItemWidth);
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextDisabled("Bypass Ratio:");
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
+                if (UI::inputDouble("Bypass ratio", selectedLTOEngine.BypassRatio, 0.0, Constants::NaN, 2))
+                    update = true;
+            }
+
+            if (UI::beginTable("LTO Engine Values", 10))
             {
                 ImGui::TableSetupColumn("LTO Stage", ImGuiTableColumnFlags_NoHide);
                 ImGui::TableSetupColumn(std::format("Fuel Flow ({})", set.FuelFlowUnits.shortName()).c_str(), ImGuiTableColumnFlags_NoHide);
@@ -141,6 +169,10 @@ namespace GRAPE {
                 ImGui::TableSetupColumn(std::format("HC EI ({})", set.EmissionIndexUnits.shortName()).c_str(), ImGuiTableColumnFlags_NoHide);
                 ImGui::TableSetupColumn(std::format("CO EI ({})", set.EmissionIndexUnits.shortName()).c_str(), ImGuiTableColumnFlags_NoHide);
                 ImGui::TableSetupColumn(std::format("NOx EI ({})", set.EmissionIndexUnits.shortName()).c_str(), ImGuiTableColumnFlags_NoHide);
+                ImGui::TableSetupColumn("Air to Fuel Ratio", ImGuiTableColumnFlags_NoHide);
+                ImGui::TableSetupColumn("Smoke Number", ImGuiTableColumnFlags_NoHide);
+                ImGui::TableSetupColumn("nvPM EI (mg/kg)", ImGuiTableColumnFlags_NoHide);
+                ImGui::TableSetupColumn("nvPM Number EI (#/kg)", ImGuiTableColumnFlags_NoHide);
                 ImGui::TableSetupScrollFreeze(0, 1);
                 ImGui::TableHeadersRow();
 
@@ -170,6 +202,26 @@ namespace GRAPE {
 
                     UI::tableNextColumn();
                     if (UI::inputDouble("NOx EI", selectedLTOEngine.EmissionIndexesNOx.at(i), set.EmissionIndexUnits, false))
+                        update = true;
+
+                    UI::tableNextColumn();
+                    if (UI::inputDouble("AFR", selectedLTOEngine.AirFuelRatios.at(i), 0.0, Constants::NaN, true, 1, ""))
+                        update = true;
+
+                    UI::tableNextColumn();
+                    if (UI::inputDouble("Smoke Number", selectedLTOEngine.SmokeNumbers.at(i), 0.0, Constants::NaN, false, 1, ""))
+                        update = true;
+
+                    UI::tableNextColumn();
+                    double eiNvpmConv = toMilligramsPerKilogram(selectedLTOEngine.EmissionIndexesNVPM.at(i));
+                    if (UI::inputDouble("nvPM EI", eiNvpmConv, 0.0, Constants::NaN, false, 2, ""))
+                    {
+                        selectedLTOEngine.EmissionIndexesNVPM.at(i) = fromMilligramsPerKilogram(eiNvpmConv);
+                        update = true;
+                    }
+
+                    UI::tableNextColumn();
+                    if (UI::inputDoubleScientific("nvPM number EI", selectedLTOEngine.EmissionIndexesNVPMNumber.at(i), 0.0, Constants::NaN, false, 3, ""))
                         update = true;
 
                     ImGui::PopID(); // LTO Phase

@@ -1,78 +1,85 @@
 {
-  "version": 4,
-  "configurePresets": [
-    {
-      "name": "Base",
-      "hidden": true,
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/out/build/${presetName}",
-      "installDir": "${sourceDir}/out/install/${presetName}",
-      "architecture": {
-        "value": "x64",
-        "strategy": "external"
-      },
-      "cacheVariables": {
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
-      }
+    "version": 5,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 24,
+        "patch": 0
     },
-    {
-      "name": "x64-debug-MSVC",
-      "inherits": "Base",
-      "displayName": "x64 Debug MSVC",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_C_COMPILER": "cl.exe",
-        "CMAKE_CXX_COMPILER": "cl.exe"
-      },
-      "vendor": {
-        "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "intelliSenseMode": "windows-msvc-x64"
+    "configurePresets": [
+        {
+            "name": "MSVC",
+            "generator": "Ninja Multi-Config",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "installDir": "${sourceDir}/out/install/${presetName}",
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+            "cacheVariables": {
+                "CMAKE_CONFIGURATION_TYPES": "Debug;Release;Distribution",
+                "CMAKE_DEFAULT_BUILD_TYPE": "Distribution",
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+                "CMAKE_C_COMPILER": "cl",
+                "CMAKE_CXX_COMPILER": "cl"
+            },
+            "vendor": {
+                "microsoft.com/VisualStudioSettings/CMake/1.0": {
+                    "intelliSenseMode": "windows-msvc-x64"
+                }
+            }
+        },
+        {
+            "name": "MSVC Tests",
+            "inherits": "MSVC",
+            "cacheVariables": {
+                "GRAPE_BUILD_TESTS": true
+            }
         }
-      }
-    },
-    {
-      "name": "x64-debug-MSVC-Tests",
-      "inherits": "x64-debug-MSVC",
-      "displayName": "x64 Debug MSVC Tests",
-      "cacheVariables": {
-        "GRAPE_BUILD_TESTS": true
-      }
-    },
-    {
-      "name": "x64-release-MSVC",
-      "inherits": "Base",
-      "displayName": "x64 Release MSVC",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_C_COMPILER": "cl.exe",
-        "CMAKE_CXX_COMPILER": "cl.exe"
-      },
-      "vendor": {
-        "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "intelliSenseMode": "windows-msvc-x64"
+    ],
+    "buildPresets": [
+        {
+            "name": "MSVC Debug",
+            "displayName": "Debug",
+            "configurePreset": "MSVC",
+            "configuration": "Debug"
+        },
+        {
+            "name": "MSVC Release",
+            "displayName": "Release",
+            "configurePreset": "MSVC",
+            "configuration": "Release"
+        },
+        {
+            "name": "MSVC Distribution",
+            "displayName": "Distribution",
+            "configurePreset": "MSVC",
+            "configuration": "Distribution"
+        },
+        {
+            "name": "MSVC Tests Debug",
+            "displayName": "Debug",
+            "configurePreset": "MSVC Tests",
+            "configuration": "Debug"
+        },
+        {
+            "name": "MSVC Tests Release",
+            "displayName": "Release",
+            "configurePreset": "MSVC Tests",
+            "configuration": "Release"
         }
-      }
-    },
-    {
-      "name": "x64-release-MSVC-Tests",
-      "inherits": "x64-release-MSVC",
-      "displayName": "x64 Release MSVC Tests",
-      "cacheVariables": {
-        "GRAPE_BUILD_TESTS": true
-      }
-    },
-    {
-      "name": "x64-distribution-MSVC",
-      "inherits": "Base",
-      "displayName": "x64 Distribution MSVC",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Distribution",
-        "CMAKE_C_COMPILER": "cl.exe",
-        "CMAKE_C_FLAGS_DISTRIBUTION": "/O2 /Ob2 /DNDEBUG",
-        "CMAKE_CXX_COMPILER": "cl.exe",
-        "CMAKE_CXX_FLAGS_DISTRIBUTION": "/O2 /Ob2 /DNDEBUG",
-        "CMAKE_EXE_LINKER_FLAGS_DISTRIBUTION": "/INCREMENTAL:NO"
-      }
-    }
-  ]
+    ],
+    "testPresets": [
+        {
+            "name": "MSVC Tests Debug",
+            "displayName": "Debug",
+            "configurePreset": "MSVC Tests",
+            "configuration": "Debug"
+        },
+        {
+            "name": "MSVC Tests Release",
+            "displayName": "Release",
+            "configurePreset": "MSVC Tests",
+            "configuration": "Release"
+        }
+    ]
 }

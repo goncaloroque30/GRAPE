@@ -155,6 +155,14 @@ namespace GRAPE {
     Doc29Noise::Doc29Noise(std::string_view NameIn) : Name(NameIn), ArrivalSpectrum(*this), DepartureSpectrum(*this) {}
 
     bool Doc29Noise::valid() const {
-        return ArrivalLamax.size() > 1 && ArrivalSel.size() > 1 && DepartureLamax.size() > 1 && DepartureSel.size() > 1;
+        return validArrival() && validDeparture();
+    }
+
+    bool Doc29Noise::validArrival() const {
+        return ArrivalLamax.size() > 1 && ArrivalSel.size() > 1;
+    }
+
+    bool Doc29Noise::validDeparture() const {
+        return DepartureLamax.size() > 1 && DepartureSel.size() > 1;
     }
 }

@@ -87,6 +87,9 @@ namespace GRAPE {
     void NoiseRunOutput::clear() {
         std::scoped_lock lck(m_DbMutex);
 
+        if (empty())
+            return;
+
         m_ReceptorOutput = ReceptorOutput();
         m_CumulativeOutputs.clear();
 

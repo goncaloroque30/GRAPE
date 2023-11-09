@@ -4,10 +4,16 @@
 
 #include "Doc29ProfileCalculator.h"
 
-#include "Doc29Performance.h"
+#include "Doc29Aircraft.h"
+
+#include "Base/Atmosphere.h"
+#include "Base/CoordinateSystem.h"
+#include "Base/Math.h"
+#include "Airport/RouteOutput.h"
+#include "Airport/Runway.h"
 
 namespace GRAPE {
-    Doc29ProfileArrivalCalculator::Doc29ProfileArrivalCalculator(const CoordinateSystem& CsIn, const Atmosphere& AtmIn, const Aircraft& AcftIn, const Runway& RwyIn, const RouteOutput& RteOutputIn, double WeightIn) : Cs(CsIn), Atm(AtmIn), Acft(AcftIn), Rwy(RwyIn), RteOutput(RteOutputIn), Weight(WeightIn) {}
+    Doc29ProfileArrivalCalculator::Doc29ProfileArrivalCalculator(const CoordinateSystem& CsIn, const Atmosphere& AtmIn, const Doc29Aircraft& Doc29PerfIn, const Runway& RwyIn, const RouteOutput& RteOutputIn, double WeightIn, double EngineCountIn) : Cs(CsIn), Atm(AtmIn), Doc29Acft(Doc29PerfIn), Rwy(RwyIn), RteOutput(RteOutputIn), Weight(WeightIn), EngineCount(EngineCountIn) {}
 
     std::optional<ProfileOutput> Doc29ProfileArrivalCalculator::calculate(const Doc29ProfileArrival& Prof) {
         Prof.accept(*this);
@@ -98,8 +104,8 @@ namespace GRAPE {
         const double thrGs = groundSpeed(thrTas, descendLandStep.DescentAngle, Atm.headwind(RteOutput.heading(0.0)));
 
         // Threshold Point (thr)
-        double thrThrust = Weight * Constants::g0 / (Acft.EngineCount * Atm.pressureRatio(thrAltMsl)) * (descendLandStep.Doc29AerodynamicCoefficients->R + std::sin(toRadians(descendLandStep.DescentAngle)) / 1.03); // Land has its own thrust formula
-        thrThrust = thrThrust + 1.03 * (Weight * Constants::g0 / Atm.pressureRatio(thrAltMsl)) * (std::sin(toRadians(descendLandStep.DescentAngle)) * (Atm.headwind(RteOutput.heading(0.0)) - fromKnots(8.0))) / (Acft.EngineCount * thrCas);
+        double thrThrust = Weight * Constants::g0 / (EngineCount * Atm.pressureRatio(thrAltMsl)) * (descendLandStep.Doc29AerodynamicCoefficients->R + std::sin(toRadians(descendLandStep.DescentAngle)) / 1.03); // Land has its own thrust formula
+        thrThrust = thrThrust + 1.03 * (Weight * Constants::g0 / Atm.pressureRatio(thrAltMsl)) * (std::sin(toRadians(descendLandStep.DescentAngle)) * (Atm.headwind(RteOutput.heading(0.0)) - fromKnots(8.0))) / (EngineCount * thrCas);
         ProfOutput.addPoint(0.0, thrAltMsl, thrTas, thrGs, thrThrust, Constants::NaN, FlightPhase::Approach);
 
         // Touchdown (td)
@@ -107,8 +113,8 @@ namespace GRAPE {
         const double tdAltMsl = Rwy.Elevation + Rwy.Gradient * tdDist;
         const double tdTas = trueAirspeed(thrCas, tdAltMsl, Atm);
         const double tdGs = groundSpeed(tdTas, descendLandStep.DescentAngle, Atm.headwind(RteOutput.heading(tdDist)));
-        const double tdThrust = Weight * Constants::g0 / (Acft.EngineCount * Atm.pressureRatio(tdAltMsl)) * (descendLandStep.Doc29AerodynamicCoefficients->R + std::sin(toRadians(descendLandStep.DescentAngle)) / 1.03); // Land has its own thrust formula
-        const double tdThr = tdThrust + 1.03 * (Weight * Constants::g0 / Atm.pressureRatio(tdAltMsl)) * (std::sin(toRadians(descendLandStep.DescentAngle)) * (Atm.headwind(RteOutput.heading(tdDist)) - fromKnots(8.0))) / (Acft.EngineCount * thrCas);
+        const double tdThrust = Weight * Constants::g0 / (EngineCount * Atm.pressureRatio(tdAltMsl)) * (descendLandStep.Doc29AerodynamicCoefficients->R + std::sin(toRadians(descendLandStep.DescentAngle)) / 1.03); // Land has its own thrust formula
+        const double tdThr = tdThrust + 1.03 * (Weight * Constants::g0 / Atm.pressureRatio(tdAltMsl)) * (std::sin(toRadians(descendLandStep.DescentAngle)) * (Atm.headwind(RteOutput.heading(tdDist)) - fromKnots(8.0))) / (EngineCount * thrCas);
         ProfOutput.addPoint(tdDist, tdAltMsl, tdTas, tdGs, tdThrust, Constants::NaN, FlightPhase::LandingRoll);
     }
 
@@ -124,7 +130,7 @@ namespace GRAPE {
             const double cas = grStep.StartCalibratedAirspeed;
             const double tas = trueAirspeed(cas, currAltMsl, Atm);
             const double gs = tas;
-            const double thrust = grStep.StartThrustPercentage * Acft.MaximumSeaLevelStaticThrust;
+            const double thrust = grStep.StartThrustPercentage * Doc29Acft.MaximumSeaLevelStaticThrust;
             ProfOutput.addPoint(currCumGroundDist, currAltMsl, tas, gs, thrust, Constants::NaN, FlightPhase::LandingRoll);
 
             // Last GroundDistance is currently ignored
@@ -183,7 +189,7 @@ namespace GRAPE {
                     const double gs = groundSpeed(tas, StepDescIdle.DescentAngle, Atm.headwind(RteOutput.heading(currCumGroundDist)));
 
                     const double midAltMsl = std::midpoint(currAltMsl, altMsl);
-                    const double thrust = Profile.parentDoc29Performance().thrust()(Doc29Thrust::Rating::Idle, StepDescIdle.StartCalibratedAirspeed, midAltMsl, Acft.EngineBreakpointTemperature, Atm);
+                    const double thrust = Profile.parentDoc29Performance().thrust()(Doc29Thrust::Rating::Idle, StepDescIdle.StartCalibratedAirspeed, midAltMsl, Doc29Acft.EngineBreakpointTemperature, Atm);
 
                     ProfOutput.addPoint(currCumGroundDist, altMsl, tas, gs, thrust, Constants::NaN, FlightPhase::Approach);
 
@@ -196,7 +202,7 @@ namespace GRAPE {
                     },
                 [&](const Doc29ProfileArrivalProcedural::Level& StepLevel) {
                     currCumGroundDist = currCumGroundDist + StepLevel.GroundDistance;
-                    const double thrust = Weight * Constants::g0 * StepLevel.Doc29AerodynamicCoefficients->R / (Acft.EngineCount * Atm.pressureRatio(currAltMsl));
+                    const double thrust = Weight * Constants::g0 * StepLevel.Doc29AerodynamicCoefficients->R / (EngineCount * Atm.pressureRatio(currAltMsl));
                     ProfOutput.addPoint(currCumGroundDist, currAltMsl, currTas, currGs, thrust, Constants::NaN, FlightPhase::Approach);
                         return true;
                     },
@@ -223,7 +229,7 @@ namespace GRAPE {
                     const double gs = groundSpeed(tas, 0.0, Atm.headwind(RteOutput.heading(currCumGroundDist)));
 
                     const double midCas = std::midpoint(currCas, StepLevelIdle.StartCalibratedAirspeed);
-                    const double thrust = Profile.parentDoc29Performance().thrust()(Doc29Thrust::Rating::Idle, midCas, currAltMsl, Acft.EngineBreakpointTemperature, Atm);
+                    const double thrust = Profile.parentDoc29Performance().thrust()(Doc29Thrust::Rating::Idle, midCas, currAltMsl, Doc29Acft.EngineBreakpointTemperature, Atm);
 
                     ProfOutput.addPoint(currCumGroundDist, currAltMsl, tas, gs, thrust, Constants::NaN, FlightPhase::Approach);
 
@@ -242,11 +248,11 @@ namespace GRAPE {
         }
     }
 
-    double Doc29ProfileArrivalCalculator::forceBalanceThrust(double AltitudeMsl, double R, double Angle, double Acceleration) const { return Weight * Constants::g0 / (Acft.EngineCount * Atm.pressureRatio(AltitudeMsl)) * (R * std::cos(toRadians(Angle)) + std::sin(toRadians(Angle)) + Acceleration / Constants::g0); }
+    double Doc29ProfileArrivalCalculator::forceBalanceThrust(double AltitudeMsl, double R, double Angle, double Acceleration) const { return Weight * Constants::g0 / (EngineCount * Atm.pressureRatio(AltitudeMsl)) * (R * std::cos(toRadians(Angle)) + std::sin(toRadians(Angle)) + Acceleration / Constants::g0); }
 
     double Doc29ProfileArrivalCalculator::acceleration(double V1, double V2, double Angle, double GroundDistance) const { return (std::pow(V2 / std::cos(toRadians(Angle)), 2.0) - std::pow(V1 / std::cos(toRadians(Angle)), 2.0)) / (2.0 * GroundDistance / std::cos(toRadians(Angle))); }
 
-    Doc29ProfileDepartureCalculator::Doc29ProfileDepartureCalculator(const CoordinateSystem& CsIn, const Atmosphere& AtmIn, const Aircraft& AcftIn, const Runway& RwyIn, const RouteOutput& RteOutputIn, double WeightIn, double ThrustPercentageTakeoffIn, double ThrustPercentageClimbIn) : Cs(CsIn), Atm(AtmIn), Acft(AcftIn), Rwy(RwyIn), RteOutput(RteOutputIn), Weight(WeightIn), ThrustPercentageTakeoff(ThrustPercentageTakeoffIn), ThrustPercentageClimb(ThrustPercentageClimbIn) {}
+    Doc29ProfileDepartureCalculator::Doc29ProfileDepartureCalculator(const CoordinateSystem& CsIn, const Atmosphere& AtmIn, const Doc29Aircraft& Doc29PerfIn, const Runway& RwyIn, const RouteOutput& RteOutputIn, double WeightIn, double EngineCountIn, double ThrustPercentageTakeoffIn, double ThrustPercentageClimbIn) : Cs(CsIn), Atm(AtmIn), Doc29Acft(Doc29PerfIn), Rwy(RwyIn), RteOutput(RteOutputIn), Weight(WeightIn), EngineCount(EngineCountIn), ThrustPercentageTakeoff(ThrustPercentageTakeoffIn), ThrustPercentageClimb(ThrustPercentageClimbIn) {}
 
     void Doc29ProfileDepartureCalculator::visitDoc29ProfileDepartureProcedural(const Doc29ProfileDepartureProcedural& Profile) {
         double currCumGroundDist = Constants::NaN, currAltMsl = Constants::NaN, currCas = Constants::NaN, currTas = Constants::NaN, currGs = Constants::NaN, currThrust = Constants::NaN, currBankAngle = Constants::NaN;
@@ -275,15 +281,15 @@ namespace GRAPE {
                     currCas = TakeoffStep.InitialCalibratedAirspeed;
                     currTas = trueAirspeed(currCas, currAltMsl, Atm);
                     currGs = currTas; // On ground Groundspeed = TAS
-                    currThrust = currThrustPercentage * Profile.parentDoc29Performance().thrust()(currThrustRating, currCas, currAltMsl, Acft.EngineBreakpointTemperature, Atm);
+                    currThrust = currThrustPercentage * Profile.parentDoc29Performance().thrust()(currThrustRating, currCas, currAltMsl, Doc29Acft.EngineBreakpointTemperature, Atm);
                     currBankAngle = 0.0;
                     ProfOutput.addPoint(currCumGroundDist, currAltMsl, currTas, currGs, currThrust, currBankAngle, FlightPhase::TakeoffRoll);
 
                     // Takeoff Point
                     currCas = TakeoffStep.Doc29AerodynamicCoefficients->C * std::sqrt(Weight * Constants::g0);
                     currTas = trueAirspeed(currCas, currAltMsl, Atm);
-                    currThrust = currThrustPercentage * Profile.parentDoc29Performance().thrust()(currThrustRating, currCas, currAltMsl, Acft.EngineBreakpointTemperature, Atm);
-                    currCumGroundDist = TakeoffStep.Doc29AerodynamicCoefficients->B * Atm.temperatureRatio(currAltMsl) * std::pow(Weight * Constants::g0 / Atm.pressureRatio(currAltMsl), 2.0) / (Acft.EngineCount * currThrust);
+                    currThrust = currThrustPercentage * Profile.parentDoc29Performance().thrust()(currThrustRating, currCas, currAltMsl, Doc29Acft.EngineBreakpointTemperature, Atm);
+                    currCumGroundDist = TakeoffStep.Doc29AerodynamicCoefficients->B * Atm.temperatureRatio(currAltMsl) * std::pow(Weight * Constants::g0 / Atm.pressureRatio(currAltMsl), 2.0) / (EngineCount * currThrust);
                     currCumGroundDist = currCumGroundDist * (std::pow(currCas - Atm.headwind(RteOutput.heading(currCumGroundDist)), 2.0) / std::pow(currCas - fromKnots(8.0), 2.0));
                     const double accel = std::pow(currTas, 2.0) / (2.0 * currCumGroundDist);
                     currCumGroundDist = currCumGroundDist * accel / (accel - Constants::g0 * Rwy.Gradient);
@@ -298,7 +304,7 @@ namespace GRAPE {
                     const double endAltMsl = ClimbStep.EndAltitudeAfe + Rwy.Elevation;
                     if (endAltMsl < currAltMsl)
                         return true; // Altitude already reached by previous step
-                    const double endThrust = currThrustPercentage * Profile.parentDoc29Performance().thrust()(currThrustRating, currCas, endAltMsl, Acft.EngineBreakpointTemperature, Atm);
+                    const double endThrust = currThrustPercentage * Profile.parentDoc29Performance().thrust()(currThrustRating, currCas, endAltMsl, Doc29Acft.EngineBreakpointTemperature, Atm);
 
                     // Mid Point
                     const double midAltMsl = std::midpoint(currAltMsl, endAltMsl);
@@ -308,7 +314,8 @@ namespace GRAPE {
                     // Climb Angle
                     const double k = currCas <= fromKnots(200.0) ? 1.01 : 0.95;
                     const double windCorr = (currCas - fromKnots(8.0)) / (currCas - Atm.headwind(RteOutput.heading(currCumGroundDist))); // Headwind correction taken for headwind at the beginning of the climb
-                    const double climbAngle = windCorr * fromRadians(std::asin(k * (Acft.EngineCount * midThrust / midWeightForce - ClimbStep.Doc29AerodynamicCoefficients->R / std::cos(toRadians(currBankAngle)))));
+                    const double climbAngleArg = std::min(1.0 - Constants::Precision, k * (EngineCount * midThrust / midWeightForce - ClimbStep.Doc29AerodynamicCoefficients->R / std::cos(toRadians(currBankAngle))));
+                    const double climbAngle = windCorr * fromRadians(std::asin(climbAngleArg));
 
                     double groundDist = groundDistance(currAltMsl, endAltMsl, climbAngle);
                     const double endCumGroundDist = currCumGroundDist + groundDist;
@@ -333,7 +340,7 @@ namespace GRAPE {
                             const double cutbackAltMsl = currAltMsl + cutbackGroundDist * std::tan(toRadians(climbAngle));
                             const double cutbackTas = trueAirspeed(currCas, cutbackAltMsl, Atm);
                             const double cutbackGs = cutbackTas * std::cos(toRadians(climbAngle)) - Atm.headwind(RteOutput.heading(cutbackCumGroundDist));
-                            const double cutbackThrust = currThrustPercentage * Profile.parentDoc29Performance().thrust()(currThrustRating, currCas, cutbackAltMsl, Acft.EngineBreakpointTemperature, Atm);
+                            const double cutbackThrust = currThrustPercentage * Profile.parentDoc29Performance().thrust()(currThrustRating, currCas, cutbackAltMsl, Doc29Acft.EngineBreakpointTemperature, Atm);
                             const double cutbackBankAngle = bankAngle(cutbackGs, RteOutput.turnRadius(cutbackCumGroundDist));
                             ProfOutput.addPoint(cutbackCumGroundDist, cutbackAltMsl, cutbackTas, cutbackGs, cutbackThrust, cutbackBankAngle, currFlPhase);
                         }
@@ -351,7 +358,7 @@ namespace GRAPE {
                         const double cutbackAltMsl = currAltMsl + cutbackGroundDist * std::tan(toRadians(climbAngle));
                         const double cutbackTas = trueAirspeed(currCas, cutbackAltMsl, Atm);
                         const double cutbackGs = cutbackTas * std::cos(toRadians(climbAngle)) - Atm.headwind(RteOutput.heading(cutbackCumGroundDist));
-                        const double cutbackThrust = currThrustPercentage * Profile.parentDoc29Performance().thrust()(currThrustRating, currCas, cutbackAltMsl, Acft.EngineBreakpointTemperature, Atm);
+                        const double cutbackThrust = currThrustPercentage * Profile.parentDoc29Performance().thrust()(currThrustRating, currCas, cutbackAltMsl, Doc29Acft.EngineBreakpointTemperature, Atm);
                         const double cutbackBankAngle = bankAngle(cutbackGs, RteOutput.turnRadius(cutbackCumGroundDist));
                         ProfOutput.addPoint(cutbackCumGroundDist, cutbackAltMsl, cutbackTas, cutbackGs, cutbackThrust, cutbackBankAngle, currFlPhase);
                     }
@@ -383,7 +390,7 @@ namespace GRAPE {
                         // EndPoint
                         endAltMsl = estimatedEndAltMsl;
                         const double endTas = trueAirspeed(ClimbAccelerateParamStep.EndCalibratedAirspeed, endAltMsl, Atm);
-                        endThrust = currThrustPercentage * Profile.parentDoc29Performance().thrust()(currThrustRating, ClimbAccelerateParamStep.EndCalibratedAirspeed, endAltMsl, Acft.EngineBreakpointTemperature, Atm);
+                        endThrust = currThrustPercentage * Profile.parentDoc29Performance().thrust()(currThrustRating, ClimbAccelerateParamStep.EndCalibratedAirspeed, endAltMsl, Doc29Acft.EngineBreakpointTemperature, Atm);
 
                         // Midpoint
                         const double midAltMsl = std::midpoint(currAltMsl, endAltMsl);
@@ -391,7 +398,7 @@ namespace GRAPE {
                         const double midThrust = std::midpoint(currThrust, endThrust);
                         const double midWeightForce = Constants::g0 * Weight / Atm.pressureRatio(midAltMsl);
 
-                        double accelFact = Acft.EngineCount * midThrust / midWeightForce - ClimbAccelerateParamStep.Doc29AerodynamicCoefficients->R * std::cos(toRadians(currBankAngle));
+                        double accelFact = EngineCount * midThrust / midWeightForce - ClimbAccelerateParamStep.Doc29AerodynamicCoefficients->R * std::cos(toRadians(currBankAngle));
 
                         if (std::is_same_v<ClimbAccelStep, const Doc29ProfileDepartureProcedural::ClimbAcceleratePercentage&>)
                             climbGrad = accelFact * (1.0 - ClimbAccelerateParamStep.ClimbParameter); // Climb parameter is percentage of thrust
@@ -437,7 +444,7 @@ namespace GRAPE {
                             const double cutbackCas = timeInterpolation(currCas, ClimbAccelerateParamStep.EndCalibratedAirspeed, cutbackGroundDist / groundDist);
                             const double cutbackTas = trueAirspeed(cutbackCas, cutbackAltMsl, Atm);
                             const double cutbackGs = groundSpeed(cutbackTas, climbAngle, Atm.headwind(RteOutput.heading(currCumGroundDist)));
-                            const double cutbackThrust = currThrustPercentage * Profile.parentDoc29Performance().thrust()(currThrustRating, currCas, cutbackAltMsl, Acft.EngineBreakpointTemperature, Atm);
+                            const double cutbackThrust = currThrustPercentage * Profile.parentDoc29Performance().thrust()(currThrustRating, currCas, cutbackAltMsl, Doc29Acft.EngineBreakpointTemperature, Atm);
                             const double cutbackBankAngle = bankAngle(currGs, RteOutput.turnRadius(cutbackCumGroundDist));
                             ProfOutput.addPoint(cutbackCumGroundDist, cutbackAltMsl, cutbackTas, cutbackGs, cutbackThrust, cutbackBankAngle, currFlPhase);
                         }
@@ -455,7 +462,7 @@ namespace GRAPE {
                         const double cutbackCas = timeInterpolation(currCas, ClimbAccelerateParamStep.EndCalibratedAirspeed, cutbackGroundDist / groundDist);
                         const double cutbackTas = trueAirspeed(cutbackCas, cutbackAltMsl, Atm);
                         const double cutbackGs = groundSpeed(cutbackTas, climbAngle, Atm.headwind(RteOutput.heading(currCumGroundDist)));
-                        const double cutbackThrust = currThrustPercentage * Profile.parentDoc29Performance().thrust()(currThrustRating, currCas, cutbackAltMsl, Acft.EngineBreakpointTemperature, Atm);
+                        const double cutbackThrust = currThrustPercentage * Profile.parentDoc29Performance().thrust()(currThrustRating, currCas, cutbackAltMsl, Doc29Acft.EngineBreakpointTemperature, Atm);
                         const double cutbackBankAngle = bankAngle(currGs, RteOutput.turnRadius(cutbackCumGroundDist));
                         ProfOutput.addPoint(cutbackCumGroundDist, cutbackAltMsl, cutbackTas, cutbackGs, cutbackThrust, cutbackBankAngle, currFlPhase);
                     }

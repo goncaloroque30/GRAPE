@@ -3,7 +3,7 @@
 #pragma once
 
 #include "Airport/Airport.h"
-#include "Aircraft/Doc29/Doc29Performance.h"
+#include "Aircraft/Doc29/Doc29Aircraft.h"
 #include "Aircraft/Doc29/Doc29Noise.h"
 #include "Aircraft/FuelEmissions/SFI.h"
 #include "Aircraft/FuelEmissions/LTO.h"
@@ -14,12 +14,12 @@ namespace GRAPE {
     class Constraints {
     public:
         // Not removable because Aircraft has pointer to
-        [[nodiscard]] bool notRemovable(const Doc29Performance& Doc29Acft) const { return m_NrDoc29Aircraft.contains(Doc29Acft); }
+        [[nodiscard]] bool notRemovable(const Doc29Aircraft& Doc29Acft) const { return m_NrDoc29Aircraft.contains(Doc29Acft); }
         [[nodiscard]] bool notRemovable(const Doc29Noise& Doc29Ns) const { return m_NrDoc29Noise.contains(Doc29Ns); }
         [[nodiscard]] bool notRemovable(const SFI& Sfi) const { return m_NrSFI.contains(Sfi); }
         [[nodiscard]] bool notRemovable(const LTOEngine& LtoEng) const { return m_NrLTOEngine.contains(LtoEng); }
 
-        [[nodiscard]] auto& blocking(const Doc29Performance& Doc29Acft) const { return m_NrDoc29Aircraft.blocking(Doc29Acft); }
+        [[nodiscard]] auto& blocking(const Doc29Aircraft& Doc29Acft) const { return m_NrDoc29Aircraft.blocking(Doc29Acft); }
         [[nodiscard]] auto& blocking(const Doc29Noise& Doc29Ns) const { return m_NrDoc29Noise.blocking(Doc29Ns); }
         [[nodiscard]] auto& blocking(const SFI& Sfi) const { return m_NrSFI.blocking(Sfi); }
         [[nodiscard]] auto& blocking(const LTOEngine& LtoEng) const { return m_NrLTOEngine.blocking(LtoEng); }
@@ -46,7 +46,7 @@ namespace GRAPE {
         [[nodiscard]] bool notEditable(const Airport& Apt) const { return m_NeAirports.contains(Apt); }
         [[nodiscard]] bool notEditable(const Runway& Rwy) const { return m_NeRunways.contains(Rwy); }
         [[nodiscard]] bool notEditable(const Route& Rte) const { return m_NeRoutes.contains(Rte); }
-        [[nodiscard]] bool notEditable(const Doc29Performance& Doc29Acft) const { return m_NeDoc29Aircrafts.contains(Doc29Acft); }
+        [[nodiscard]] bool notEditable(const Doc29Aircraft& Doc29Acft) const { return m_NeDoc29Aircrafts.contains(Doc29Acft); }
         [[nodiscard]] bool notEditable(const SFI& Sfi) const { return m_NeSFI.contains(Sfi); }
         [[nodiscard]] bool notEditable(const LTOEngine& LtoEng) const { return m_NeLTOEngine.contains(LtoEng); }
         [[nodiscard]] bool notEditable(const Aircraft& Acft) const { return m_NeAircrafts.contains(Acft); }
@@ -101,7 +101,7 @@ namespace GRAPE {
 
     private:
         // Not Removable
-        BlockMap<const Doc29Performance*, const Aircraft*> m_NrDoc29Aircraft;
+        BlockMap<const Doc29Aircraft*, const Aircraft*> m_NrDoc29Aircraft;
         BlockMap<const Doc29Noise*, const Aircraft*> m_NrDoc29Noise;
         BlockMap<const SFI*, const Aircraft*> m_NrSFI;
         BlockMap<const LTOEngine*, const Aircraft*> m_NrLTOEngine;
@@ -120,7 +120,7 @@ namespace GRAPE {
         BlockMap<const Route*, const PerformanceRun*> m_NeRoutes;
         BlockMap<const SFI*, const PerformanceRun*> m_NeSFI;
         BlockMap<const LTOEngine*, const PerformanceRun*> m_NeLTOEngine;
-        BlockMap<const Doc29Performance*, const PerformanceRun*> m_NeDoc29Aircrafts;
+        BlockMap<const Doc29Aircraft*, const PerformanceRun*> m_NeDoc29Aircrafts;
         BlockMap<const Aircraft*, const PerformanceRun*> m_NeAircrafts;
         BlockMap<const Operation*, const PerformanceRun*> m_NeOperations;
         BlockMap<const Scenario*, const PerformanceRun*> m_NeScenarios;

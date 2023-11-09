@@ -3,7 +3,7 @@
 #pragma once
 
 namespace GRAPE {
-    class Doc29Performance;
+    class Doc29Aircraft;
     class Doc29Noise;
     class LTOEngine;
     class SFI;
@@ -13,11 +13,11 @@ namespace GRAPE {
     */
     struct Aircraft {
         explicit Aircraft(std::string_view NameIn) noexcept;
-        Aircraft(std::string_view NameIn, const Doc29Performance* Doc29AcftIn, const SFI* SFIIn, const LTOEngine* LTOEngineIn, const Doc29Noise* Doc29NsIn) noexcept;
+        Aircraft(std::string_view NameIn, const Doc29Aircraft* Doc29AcftIn, const SFI* SFIIn, const LTOEngine* LTOEngineIn, const Doc29Noise* Doc29NsIn) noexcept;
 
         std::string Name;
 
-        const Doc29Performance* Doc29Perf = nullptr; // Performance
+        const Doc29Aircraft* Doc29Acft = nullptr; // Performance
 
         const SFI* SFIFuel = nullptr;      // Fuel Flow
         const LTOEngine* LTOEng = nullptr; // Fuel Flow & Emissions
@@ -36,30 +36,10 @@ namespace GRAPE {
         */
         void setEngineCountE(int EngineCountIn);
 
-        // Maximum Sea Level Static Thrust
-        double MaximumSeaLevelStaticThrust = 100000.0;
-
         /**
-        * @brief Throwing set method for #MaximumSeaLevelStaticThrust.
-        *
-        * Throw if not in range ]0, inf].
+        * @return True if #Doc29Acft is not nullptr.
         */
-        void setMaximumSeaLevelStaticThrustE(double MaximumSeaLevelStaticThrustIn);
-
-        // Engine Breakpoint Temperature
-        double EngineBreakpointTemperature = 303.15; // 30 C.
-
-        /**
-        * @brief Throwing set method for #EngineBreakpointTemperature.
-        *
-        * Throw if not in range [0, inf].
-        */
-        void setEngineBreakpointTemperatureE(double EngineBreakpointTemperatureIn);
-
-        /**
-        * @return  True if #Doc29Perf is not nullptr.
-        */
-        [[nodiscard]] bool validDoc29Performance() const { return Doc29Perf; }
+        [[nodiscard]] bool validDoc29Performance() const { return Doc29Acft; }
 
         /**
         * @return  True if #SFIFuel is not nullptr.

@@ -558,7 +558,7 @@ namespace GRAPE {
     namespace {
         enum class CsvDataset {
             None = 0,
-            Doc29Performance,
+            Doc29Aircraft,
             Doc29AerodynamicCoefficients,
             Doc29ThrustRatings,
             Doc29ThrustRatingsPropeller,
@@ -624,7 +624,7 @@ namespace GRAPE {
                 ImGui::EndMenu();
             }
             if (ImGui::IsItemClicked())
-                ret = CsvDataset::Doc29Performance;
+                ret = CsvDataset::Doc29Aircraft;
 
             if (ImGui::BeginMenu("Doc29 Noise"))
             {
@@ -814,7 +814,7 @@ namespace GRAPE {
                                 switch (clicked)
                                 {
                                 case CsvDataset::None: GRAPE_ASSERT(false); break;
-                                case CsvDataset::Doc29Performance: queueAsyncTask([&, path] {
+                                case CsvDataset::Doc29Aircraft: queueAsyncTask([&, path] {
                                     IO::CSV::importDoc29Performance(path);
                                     }, std::format("Importing Doc29 Performance entries from '{}'", path)); break;
                                 case CsvDataset::Doc29AerodynamicCoefficients: queueAsyncTask([&, path] {
@@ -966,7 +966,7 @@ namespace GRAPE {
                                 switch (clicked)
                                 {
                                 case CsvDataset::None: GRAPE_ASSERT(false); break;
-                                case CsvDataset::Doc29Performance: queueAsyncTask([&, path] {
+                                case CsvDataset::Doc29Aircraft: queueAsyncTask([&, path] {
                                     IO::CSV::exportDoc29Performance(path);
                                     }, std::format("Exporting Doc29 Performance entries to '{}'", path)); break;
                                 case CsvDataset::Doc29AerodynamicCoefficients: queueAsyncTask([&, path] {
@@ -1199,7 +1199,7 @@ namespace GRAPE {
         if (ImGui::BeginPopupModal("##AsyncTask", nullptr, ImGuiWindowFlags_NoDecoration))
         {
             ImGui::Spacing();
-            UI::textInfo(std::format("{} ...", m_AsyncTask.message()));
+            UI::textInfoWrapped(std::format("{} ...", m_AsyncTask.message()));
 
             ImGui::Spacing();
             constexpr float radius = 15.0f;

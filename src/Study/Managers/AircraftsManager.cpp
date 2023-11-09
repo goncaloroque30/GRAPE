@@ -27,7 +27,7 @@ namespace GRAPE {
         };
     }
 
-    AircraftsManager::AircraftsManager(const Database& Db, Constraints& Blocks, Doc29PerformanceManager& Doc29Perf, Doc29NoiseManager& Doc29Ns, SFIManager& SFIs, LTOManager& LTOs, OperationsManager& Ops) : Manager(Db, Blocks), m_Doc29Performances(Doc29Perf), m_Doc29Noises(Doc29Ns), m_SFIFuels(SFIs), m_LTOEngines(LTOs), m_Operations(Ops) {}
+    AircraftsManager::AircraftsManager(const Database& Db, Constraints& Blocks, Doc29PerformanceManager& Doc29Acft, Doc29NoiseManager& Doc29Ns, SFIManager& SFIs, LTOManager& LTOs, OperationsManager& Ops) : Manager(Db, Blocks), m_Doc29Aircrafts(Doc29Acft), m_Doc29Noises(Doc29Ns), m_SFIFuels(SFIs), m_LTOEngines(LTOs), m_Operations(Ops) {}
 
     std::pair<Aircraft&, bool> AircraftsManager::addAircraft(const std::string& Name) {
         const std::string newName = Name.empty() ? uniqueKeyGenerator(m_Aircrafts, "New Aircraft") : Name;
@@ -57,9 +57,9 @@ namespace GRAPE {
         return acft;
     }
 
-    void AircraftsManager::setDoc29Performance(Aircraft& Acft, const Doc29Performance* Doc29Perf) {
+    void AircraftsManager::setDoc29Performance(Aircraft& Acft, const Doc29Aircraft* Doc29Acft) {
         m_Blocks.aircraftUnblockDoc29Acft(Acft);
-        Acft.Doc29Perf = Doc29Perf;
+        Acft.Doc29Acft = Doc29Acft;
         m_Blocks.aircraftBlockDoc29Acft(Acft);
         update(Acft);
         if (m_Blocks.notRemovable(Acft))
@@ -123,7 +123,7 @@ namespace GRAPE {
     bool AircraftsManager::updateKey(Aircraft& Acft, const std::string Id) {
         if (Acft.Name.empty())
         {
-            Log::dataLogic()->error("Updating airport '{}'. Empty name not allowed.", Id);
+            Log::dataLogic()->error("Updating aircraft '{}'. Empty name not allowed.", Id);
             Acft.Name = Id;
             return false;
         }
@@ -144,28 +144,14 @@ namespace GRAPE {
         Statement stmt(m_Db, Schema::fleet.queryUpdate({}, { 0 }));
         stmt.bind(0, Acft.Name);
         stmt.bind(1, Acft.EngineCount);
-        stmt.bind(2, Acft.MaximumSeaLevelStaticThrust);
-        stmt.bind(3, Acft.EngineBreakpointTemperature);
-        if (Acft.validDoc29Performance())
-            stmt.bind(4, Acft.Doc29Perf->Name);
-        else
-            stmt.bind(4, std::monostate());
-        if (Acft.validSFI())
-            stmt.bind(5, Acft.SFIFuel->Name);
-        else
-            stmt.bind(5, std::monostate());
-        if (Acft.validLTOEngine())
-            stmt.bind(6, Acft.LTOEng->Name);
-        else
-            stmt.bind(6, std::monostate());
-        if (Acft.validDoc29Noise())
-            stmt.bind(7, Acft.Doc29Ns->Name);
-        else
-            stmt.bind(7, std::monostate());
-        stmt.bind(8, Acft.Doc29NoiseDeltaArrivals);
-        stmt.bind(9, Acft.Doc29NoiseDeltaDepartures);
+        Acft.validDoc29Performance() ? stmt.bind(2, Acft.Doc29Acft->Name) : stmt.bind(2, std::monostate());
+        Acft.validSFI() ? stmt.bind(3, Acft.SFIFuel->Name) : stmt.bind(3, std::monostate());
+        Acft.validLTOEngine() ? stmt.bind(4, Acft.LTOEng->Name) : stmt.bind(4, std::monostate());
+        Acft.validDoc29Noise() ? stmt.bind(5, Acft.Doc29Ns->Name) : stmt.bind(5, std::monostate());
+        stmt.bind(6, Acft.Doc29NoiseDeltaArrivals);
+        stmt.bind(7, Acft.Doc29NoiseDeltaDepartures);
 
-        stmt.bind(10, Acft.Name);
+        stmt.bind(8, Acft.Name);
 
         stmt.step();
     }
@@ -180,44 +166,42 @@ namespace GRAPE {
             GRAPE_ASSERT(added);
 
             acft.EngineCount = stmt.getColumn(1);
-            acft.MaximumSeaLevelStaticThrust = stmt.getColumn(2);
-            acft.EngineBreakpointTemperature = stmt.getColumn(3);
 
-            if (!stmt.isColumnNull(4))
+            if (!stmt.isColumnNull(2))
             {
-                const std::string doc29AcftStr = stmt.getColumn(4);
-                if (m_Doc29Performances.performances().contains(doc29AcftStr))
-                    acft.Doc29Perf = &m_Doc29Performances(doc29AcftStr);
+                const std::string doc29AcftStr = stmt.getColumn(2);
+                if (m_Doc29Aircrafts.performances().contains(doc29AcftStr))
+                    acft.Doc29Acft = &m_Doc29Aircrafts(doc29AcftStr);
                 else
-                    Log::io()->error("Loading Aircraft '{}'. Doc29 Performance '{}' does not exist in this study.", name, doc29AcftStr);
+                    Log::io()->error("Loading Aircraft '{}'. Doc29 Aircraft '{}' does not exist in this study.", name, doc29AcftStr);
             }
-            if (!stmt.isColumnNull(5))
+            if (!stmt.isColumnNull(3))
             {
-                const std::string sfiFuelStr = stmt.getColumn(5);
+                const std::string sfiFuelStr = stmt.getColumn(3);
                 if (m_SFIFuels.sfiFuels().contains(sfiFuelStr))
                     acft.SFIFuel = &m_SFIFuels(sfiFuelStr);
                 else
                     Log::io()->error("Loading Aircraft '{}'. SFI '{}' does not exist in this study.", name, sfiFuelStr);
             }
-            if (!stmt.isColumnNull(6))
+            if (!stmt.isColumnNull(4))
             {
-                const std::string ltoEngStr = stmt.getColumn(6);
+                const std::string ltoEngStr = stmt.getColumn(4);
                 if (m_LTOEngines.ltoEngines().contains(ltoEngStr))
                     acft.LTOEng = &m_LTOEngines(ltoEngStr);
                 else
                     Log::io()->error("Loading Aircraft '{}'. LTO Engine '{}' does not exist in this study.", name, ltoEngStr);
             }
-            if (!stmt.isColumnNull(7))
+            if (!stmt.isColumnNull(5))
             {
-                const std::string doc29NsStr = stmt.getColumn(7);
+                const std::string doc29NsStr = stmt.getColumn(5);
                 if (m_Doc29Noises.noises().contains(doc29NsStr))
                     acft.Doc29Ns = &m_Doc29Noises(doc29NsStr);
                 else
                     Log::io()->error("Loading Aircraft '{}'. Doc29 Noise '{}' does not exist in this study.", name, doc29NsStr);
             }
 
-            acft.Doc29NoiseDeltaArrivals = stmt.getColumn(8);
-            acft.Doc29NoiseDeltaDepartures = stmt.getColumn(9);
+            acft.Doc29NoiseDeltaArrivals = stmt.getColumn(6);
+            acft.Doc29NoiseDeltaDepartures = stmt.getColumn(7);
 
             m_Blocks.aircraftBlock(acft);
 

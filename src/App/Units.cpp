@@ -40,10 +40,10 @@ namespace GRAPE {
     template <>
     Unit<Units::Force>::Unit() : Selected(Units::Force::Newtons),
         m_Si(Units::Force::Newtons),
-        m_Conversions{ { { g_Si, g_Si }, { toPoundsOfForce, fromPoundsOfForce }, { toPoundals, fromPoundals } } },
-        m_Names{ "Newtons", "Pounds of Force", "Poundals" },
-        m_ShortNames{ "N", "lbf", "pdl", },
-        m_Decimals{ 0, 0, 0 } {}
+        m_Conversions{ { { g_Si, g_Si }, { toKilonewtons, fromKilonewtons }, { toPoundsOfForce, fromPoundsOfForce }, { toPoundals, fromPoundals } } },
+        m_Names{ "Newtons", "Kilonewtons", "Pounds of Force", "Poundals" },
+        m_ShortNames{ "N", "kN", "lbf", "pdl", },
+        m_Decimals{ 0, 0, 0, 0 } {}
 
     // Force per Distance
     template <>
@@ -167,7 +167,7 @@ namespace GRAPE {
         m_Conversions{ { { g_Si, g_Si }, { toKilogramsPerMinute, fromKilogramsPerMinute }, { toPoundsPerSecond, fromPoundsPerSecond, }, { toPoundsPerMinute, fromPoundsPerMinute } } },
         m_Names{ "Kilograms per Second", "Kilograms per Minute", "Pounds per Second", "Pounds per Minute" },
         m_ShortNames{ "kg/s", "kg/min", "lb/s", "lb/min" },
-        m_Decimals{ 0, 0, 0, 0 } {}
+        m_Decimals{ 4, 4, 4, 4 } {}
 
     // WeightPerWeight
     template <>
@@ -176,7 +176,7 @@ namespace GRAPE {
         m_Conversions{ { {g_Si, g_Si }, { toGramsPerKilogram, fromGramsPerKilogram }, { toPoundsPerPound, fromPoundsPerPound }, { toOuncesPerPound, fromOuncesPerPound } } },
         m_Names{ "Kilograms per Kilogram", "Grams per Kilogram", "Pounds per Pound", "Ounces per Pound" },
         m_ShortNames{ "kg/kg", "g/kg", "lb/lb", "oz/lb" },
-        m_Decimals{ 0, 0, 0, 0 } {}
+        m_Decimals{ 4, 2, 4, 2 } {}
 
     // Weight Small
     template <>

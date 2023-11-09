@@ -262,11 +262,13 @@ def generate_input(doc29_path: Path, output_folder: Path) -> None:
         "segmentation_speed_delta_threshold": [20.0 * 1852.0 / 3600.0],  # 20 kts 2 m/s
         "flights_performance_model": ["Doc29"],
         "flights_doc29_low_altitude_segmentation": [1],
+        "tracks_4d_calculate_performance": [True],
         "tracks_4d_minimum_points": [None],
         "tracks_4d_recalculate_cumulative_ground_distance": [0],
         "tracks_4d_recalculate_groundspeed": [0],
         "tracks_4d_recalculate_fuel_flow": [0],
-        "fuel_flow_model": ["None"]
+        "fuel_flow_model": ["None"],
+        "fuel_flow_lto_altitude_correction": [1],
     })
 
     # atmospheric conditions relative humidity flag is ignored

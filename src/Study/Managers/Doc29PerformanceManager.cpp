@@ -9,13 +9,13 @@
 namespace GRAPE {
     namespace {
         struct ThrustCoefficientsInserter : Doc29ThrustVisitor {
-            ThrustCoefficientsInserter(const Database& Db, const Doc29Performance& Doc29Acft) : m_Db(Db), m_Doc29Acft(Doc29Acft) { Doc29Acft.thrust().accept(*this); }
+            ThrustCoefficientsInserter(const Database& Db, const Doc29Aircraft& Doc29Acft) : m_Db(Db), m_Doc29Acft(Doc29Acft) { Doc29Acft.thrust().accept(*this); }
             void visitDoc29ThrustRating(Doc29ThrustRating& Thrust) override;
             void visitDoc29ThrustPropeller(Doc29ThrustRatingPropeller& Thrust) override;
 
         private:
             const Database& m_Db;
-            const Doc29Performance& m_Doc29Acft;
+            const Doc29Aircraft& m_Doc29Acft;
         };
 
         struct ProfileInserter : Doc29ProfileVisitor {
@@ -30,13 +30,13 @@ namespace GRAPE {
         };
 
         struct ThrustCoefficientsLoader : Doc29ThrustVisitor {
-            explicit ThrustCoefficientsLoader(const Database& Db, Doc29Performance& Doc29Acft) : m_Db(Db), m_Doc29Acft(Doc29Acft) { Doc29Acft.thrust().accept(*this); }
+            explicit ThrustCoefficientsLoader(const Database& Db, Doc29Aircraft& Doc29Acft) : m_Db(Db), m_Doc29Acft(Doc29Acft) { Doc29Acft.thrust().accept(*this); }
             void visitDoc29ThrustRating(Doc29ThrustRating& Thrust) override;
             void visitDoc29ThrustPropeller(Doc29ThrustRatingPropeller& Thrust) override;
 
         private:
             const Database& m_Db;
-            Doc29Performance& m_Doc29Acft;
+            Doc29Aircraft& m_Doc29Acft;
         };
 
         struct ProfileLoader : Doc29ProfileVisitor {
@@ -53,205 +53,178 @@ namespace GRAPE {
 
     Doc29PerformanceManager::Doc29PerformanceManager(const Database& Db, Constraints& Blocks) : Manager(Db, Blocks) {}
 
-    std::pair<Doc29Performance&, bool> Doc29PerformanceManager::addPerformance(Doc29Performance::Type AcftType, const std::string& Name) {
-        const std::string newName = Name.empty() ? uniqueKeyGenerator(m_Doc29Performances, "New Doc29 Aircraft") : Name;
+    std::pair<Doc29Aircraft&, bool> Doc29PerformanceManager::addPerformance(const std::string& Name) {
+        const std::string newName = Name.empty() ? uniqueKeyGenerator(m_Doc29Aircrafts, "New Doc29 Aircraft") : Name;
 
-        std::unique_ptr<Doc29Performance> newAircraft;
-        switch (AcftType)
-        {
-        case Doc29Performance::Type::Jet: newAircraft = std::make_unique<Doc29PerformanceJet>(newName);
-            break;
-        case Doc29Performance::Type::Turboprop: newAircraft = std::make_unique<Doc29PerformanceTurboprop>(newName);
-            break;
-        case Doc29Performance::Type::Piston: newAircraft = std::make_unique<Doc29PerformancePiston>(newName);
-            break;
-        default: GRAPE_ASSERT(false);
-            break;
-        }
-
-        auto ret = m_Doc29Performances.add(newName, std::move(newAircraft));
-        auto& [doc29Acft, added] = ret;
+        auto [doc29Acft, added] = m_Doc29Aircrafts.add(newName, newName);
+        GRAPE_ASSERT(added);
 
         if (added)
-            m_Db.insert(Schema::doc29_performance, { 0, 1 }, std::make_tuple(doc29Acft->Name, Doc29Performance::Types.toString(doc29Acft->type())));
+            m_Db.insert(Schema::doc29_performance, {}, std::make_tuple(doc29Acft.Name, doc29Acft.MaximumSeaLevelStaticThrust, Doc29Thrust::Types.toString(doc29Acft.thrust().type()), doc29Acft.EngineBreakpointTemperature));
         else
             Log::dataLogic()->error("Adding Doc29 aircraft '{}'. Aircraft already exists in this study.", Name);
 
-        return { *doc29Acft, added };
+        return { doc29Acft, added };
     }
 
-    bool Doc29PerformanceManager::addProfileArrival(Doc29Performance& Acft, Doc29Profile::Type ProfileType, const std::string& Name) const {
-        const std::string newName = Name.empty() ? uniqueKeyGenerator(Acft.ArrivalProfiles, "New Doc29 Arrival Profile") : Name;
+    bool Doc29PerformanceManager::addProfileArrival(Doc29Aircraft& Doc29Acft, Doc29Profile::Type ProfileType, const std::string& Name) const {
+        const std::string newName = Name.empty() ? uniqueKeyGenerator(Doc29Acft.ArrivalProfiles, "New Doc29 Arrival Profile") : Name;
 
         std::unique_ptr<Doc29ProfileArrival> newProfile;
         switch (ProfileType)
         {
-        case Doc29ProfileArrival::Type::Points: newProfile = std::make_unique<Doc29ProfileArrivalPoints>(Acft, newName);
-            break;
+        case Doc29ProfileArrival::Type::Points: newProfile = std::make_unique<Doc29ProfileArrivalPoints>(Doc29Acft, newName); break;
         case Doc29ProfileArrival::Type::Procedural:
             {
-                if (!Acft.containsAerodynamicCoefficientsWithType(Doc29AerodynamicCoefficients::Type::Land))
+                if (!Doc29Acft.containsAerodynamicCoefficientsWithType(Doc29AerodynamicCoefficients::Type::Land))
                 {
-                    Log::dataLogic()->error("Adding arrival procedural profile '{}'. Doc29 Aircraft '{}' does not have aerodynamic coefficients for landing.", newName, Acft.Name);
+                    Log::dataLogic()->error("Adding arrival procedural profile '{}'. Doc29 Aircraft '{}' does not have aerodynamic coefficients for landing.", newName, Doc29Acft.Name);
                     return false;
                 }
 
-                newProfile = std::make_unique<Doc29ProfileArrivalProcedural>(Acft, newName);
+                newProfile = std::make_unique<Doc29ProfileArrivalProcedural>(Doc29Acft, newName);
                 break;
             }
-        default: GRAPE_ASSERT(false);
-            break;
+        default: GRAPE_ASSERT(false); break;
         }
 
-        auto [doc29Prof, added] = Acft.ArrivalProfiles.add(newName, std::move(newProfile));
+        auto [doc29Prof, added] = Doc29Acft.ArrivalProfiles.add(newName, std::move(newProfile));
         if (added)
             m_Db.insert(Schema::doc29_performance_profiles, {}, std::make_tuple(doc29Prof->parentDoc29Performance().Name, OperationTypes.toString(doc29Prof->operationType()), doc29Prof->Name, Doc29Profile::Types.toString(doc29Prof->type())));
         else
-            Log::dataLogic()->error("Adding arrival profile '{}'. Profile already exist in aircraft '{}'.", newName, Acft.Name);
+            Log::dataLogic()->error("Adding arrival profile '{}'. Profile already exist in aircraft '{}'.", newName, Doc29Acft.Name);
 
         return added;
     }
 
-    bool Doc29PerformanceManager::addProfileDeparture(Doc29Performance& Acft, Doc29Profile::Type ProfileType, const std::string& Name) const {
-        const std::string newName = Name.empty() ? uniqueKeyGenerator(Acft.DepartureProfiles, "New Doc29 Departure Profile") : Name;
+    bool Doc29PerformanceManager::addProfileDeparture(Doc29Aircraft& Doc29Acft, Doc29Profile::Type ProfileType, const std::string& Name) const {
+        const std::string newName = Name.empty() ? uniqueKeyGenerator(Doc29Acft.DepartureProfiles, "New Doc29 Departure Profile") : Name;
 
         std::unique_ptr<Doc29ProfileDeparture> newProfile;
         switch (ProfileType)
         {
-        case Doc29ProfileDeparture::Type::Points: newProfile = std::make_unique<Doc29ProfileDeparturePoints>(Acft, newName);
+        case Doc29ProfileDeparture::Type::Points: newProfile = std::make_unique<Doc29ProfileDeparturePoints>(Doc29Acft, newName);
             break;
         case Doc29ProfileDeparture::Type::Procedural:
             {
-                if (!Acft.thrust().isRatingSet(Doc29Thrust::Rating::MaximumTakeoff))
+                if (!Doc29Acft.thrust().isRatingSet(Doc29Thrust::Rating::MaximumTakeoff))
                 {
-                    Log::dataLogic()->error("Adding departure procedural profile '{}'. Doc29 Aircraft '{}' does not have engine coefficients for thrust rating maximum takeoff.", newName, Acft.Name);
+                    Log::dataLogic()->error("Adding departure procedural profile '{}'. Doc29 Aircraft '{}' does not have engine coefficients for thrust rating maximum takeoff.", newName, Doc29Acft.Name);
                     return false;
                 }
 
-                if (!Acft.thrust().isRatingSet(Doc29Thrust::Rating::MaximumClimb))
+                if (!Doc29Acft.thrust().isRatingSet(Doc29Thrust::Rating::MaximumClimb))
                 {
-                    Log::dataLogic()->error("Adding departure procedural profile '{}'. Doc29 Aircraft '{}' does not have engine coefficients for thrust rating maximum climb.", newName, Acft.Name);
+                    Log::dataLogic()->error("Adding departure procedural profile '{}'. Doc29 Aircraft '{}' does not have engine coefficients for thrust rating maximum climb.", newName, Doc29Acft.Name);
                     return false;
                 }
 
-                if (!Acft.containsAerodynamicCoefficientsWithType(Doc29AerodynamicCoefficients::Type::Takeoff))
+                if (!Doc29Acft.containsAerodynamicCoefficientsWithType(Doc29AerodynamicCoefficients::Type::Takeoff))
                 {
-                    Log::dataLogic()->error("Adding departure procedural profile '{}'. Doc29 Aircraft '{}' does not have aerodynamic coefficients for takeoff.", newName, Acft.Name);
+                    Log::dataLogic()->error("Adding departure procedural profile '{}'. Doc29 Aircraft '{}' does not have aerodynamic coefficients for takeoff.", newName, Doc29Acft.Name);
                     return false;
                 }
 
-                newProfile = std::make_unique<Doc29ProfileDepartureProcedural>(Acft, newName);
+                newProfile = std::make_unique<Doc29ProfileDepartureProcedural>(Doc29Acft, newName);
                 break;
             }
         default: GRAPE_ASSERT(false);
             break;
         }
 
-        auto [doc29Prof, added] = Acft.DepartureProfiles.add(newName, std::move(newProfile));
+        auto [doc29Prof, added] = Doc29Acft.DepartureProfiles.add(newName, std::move(newProfile));
         if (added)
             m_Db.insert(Schema::doc29_performance_profiles, {}, std::make_tuple(doc29Prof->parentDoc29Performance().Name, OperationTypes.toString(doc29Prof->operationType()), doc29Prof->Name, Doc29Profile::Types.toString(doc29Prof->type())));
         else
-            Log::dataLogic()->error("Adding departure profile '{}'. Profile already exists in aircraft '{}'.", newName, Acft.Name);
+            Log::dataLogic()->error("Adding departure profile '{}'. Profile already exists in aircraft '{}'.", newName, Doc29Acft.Name);
 
         return added;
     }
 
-    Doc29Performance& Doc29PerformanceManager::addPerformanceE(Doc29Performance::Type AcftType, const std::string& Name) {
+    Doc29Aircraft& Doc29PerformanceManager::addPerformanceE(const std::string& Name) {
         if (Name.empty())
             throw GrapeException("Empty name not allowed.");
 
-        std::unique_ptr<Doc29Performance> newAircraft;
-        switch (AcftType)
-        {
-        case Doc29Performance::Type::Jet: newAircraft = std::make_unique<Doc29PerformanceJet>(Name);
-            break;
-        case Doc29Performance::Type::Turboprop: newAircraft = std::make_unique<Doc29PerformanceTurboprop>(Name);
-            break;
-        case Doc29Performance::Type::Piston: newAircraft = std::make_unique<Doc29PerformancePiston>(Name);
-            break;
-        default: GRAPE_ASSERT(false);
-            break;
-        }
-
-        auto [doc29Acft, added] = m_Doc29Performances.add(Name, std::move(newAircraft));
+        auto [doc29Acft, added] = m_Doc29Aircrafts.add(Name, Name);
+        GRAPE_ASSERT(added);
 
         if (added)
-            m_Db.insert(Schema::doc29_performance, { 0, 1 }, std::make_tuple(doc29Acft->Name, Doc29Performance::Types.toString(doc29Acft->type())));
+            m_Db.insert(Schema::doc29_performance, {}, std::make_tuple(doc29Acft.Name, doc29Acft.MaximumSeaLevelStaticThrust, Doc29Thrust::Types.toString(doc29Acft.thrust().type()), doc29Acft.EngineBreakpointTemperature));
         else
             throw GrapeException(std::format("Aircraft '{}' already exists in this study.", Name));
 
-        return *doc29Acft;
+        return doc29Acft;
     }
 
-    Doc29ProfileArrival& Doc29PerformanceManager::addProfileArrivalE(Doc29Performance& Perf, Doc29Profile::Type ProfileType, const std::string& Name) const {
+    Doc29ProfileArrival& Doc29PerformanceManager::addProfileArrivalE(Doc29Aircraft& Doc29Acft, Doc29Profile::Type ProfileType, const std::string& Name) const {
         if (Name.empty())
             throw GrapeException("Empty Doc29 arrival profile name not allowed.");
 
         std::unique_ptr<Doc29ProfileArrival> newProfile;
         switch (ProfileType)
         {
-        case Doc29ProfileArrival::Type::Points: newProfile = std::make_unique<Doc29ProfileArrivalPoints>(Perf, Name);
+        case Doc29ProfileArrival::Type::Points: newProfile = std::make_unique<Doc29ProfileArrivalPoints>(Doc29Acft, Name);
             break;
         case Doc29ProfileArrival::Type::Procedural:
             {
-                if (!Perf.containsAerodynamicCoefficientsWithType(Doc29AerodynamicCoefficients::Type::Land))
-                    throw GrapeException(std::format("Doc29 Aircraft '{}' does not have aerodynamic coefficients for landing.", Perf.Name));
+                if (!Doc29Acft.containsAerodynamicCoefficientsWithType(Doc29AerodynamicCoefficients::Type::Land))
+                    throw GrapeException(std::format("Doc29 Aircraft '{}' does not have aerodynamic coefficients for landing.", Doc29Acft.Name));
 
-                newProfile = std::make_unique<Doc29ProfileArrivalProcedural>(Perf, Name);
+                newProfile = std::make_unique<Doc29ProfileArrivalProcedural>(Doc29Acft, Name);
                 break;
             }
         default: GRAPE_ASSERT(false);
             break;
         }
 
-        auto [doc29Prof, added] = Perf.ArrivalProfiles.add(Name, std::move(newProfile));
+        auto [doc29Prof, added] = Doc29Acft.ArrivalProfiles.add(Name, std::move(newProfile));
         if (added)
             m_Db.insert(Schema::doc29_performance_profiles, {}, std::make_tuple(doc29Prof->parentDoc29Performance().Name, OperationTypes.toString(doc29Prof->operationType()), doc29Prof->Name, Doc29Profile::Types.toString(doc29Prof->type())));
         else
-            throw GrapeException(std::format("Arrival profile '{}' already exist in aircraft '{}'.", Name, Perf.Name));
+            throw GrapeException(std::format("Arrival profile '{}' already exist in aircraft '{}'.", Name, Doc29Acft.Name));
 
         return *doc29Prof;
     }
 
-    Doc29ProfileDeparture& Doc29PerformanceManager::addProfileDepartureE(Doc29Performance& Perf, Doc29Profile::Type ProfileType, const std::string& Name) const {
+    Doc29ProfileDeparture& Doc29PerformanceManager::addProfileDepartureE(Doc29Aircraft& Doc29Acft, Doc29Profile::Type ProfileType, const std::string& Name) const {
         std::unique_ptr<Doc29ProfileDeparture> newProfile;
         switch (ProfileType)
         {
-        case Doc29ProfileDeparture::Type::Points: newProfile = std::make_unique<Doc29ProfileDeparturePoints>(Perf, Name);
+        case Doc29ProfileDeparture::Type::Points: newProfile = std::make_unique<Doc29ProfileDeparturePoints>(Doc29Acft, Name);
             break;
         case Doc29ProfileDeparture::Type::Procedural:
             {
-                if (!Perf.thrust().isRatingSet(Doc29Thrust::Rating::MaximumTakeoff))
-                    throw GrapeException(std::format("Doc29 Aircraft '{}' does not have engine coefficients for thrust rating maximum takeoff.", Perf.Name));
+                if (!Doc29Acft.thrust().isRatingSet(Doc29Thrust::Rating::MaximumTakeoff))
+                    throw GrapeException(std::format("Doc29 Aircraft '{}' does not have engine coefficients for thrust rating maximum takeoff.", Doc29Acft.Name));
 
-                if (!Perf.thrust().isRatingSet(Doc29Thrust::Rating::MaximumClimb))
-                    throw GrapeException(std::format("Doc29 Aircraft '{}' does not have engine coefficients for thrust rating maximum climb.", Perf.Name));
+                if (!Doc29Acft.thrust().isRatingSet(Doc29Thrust::Rating::MaximumClimb))
+                    throw GrapeException(std::format("Doc29 Aircraft '{}' does not have engine coefficients for thrust rating maximum climb.", Doc29Acft.Name));
 
-                if (!Perf.containsAerodynamicCoefficientsWithType(Doc29AerodynamicCoefficients::Type::Takeoff))
-                    throw GrapeException(std::format("Doc29 Aircraft '{}' does not have aerodynamic coefficients for takeoff.", Perf.Name));
+                if (!Doc29Acft.containsAerodynamicCoefficientsWithType(Doc29AerodynamicCoefficients::Type::Takeoff))
+                    throw GrapeException(std::format("Doc29 Aircraft '{}' does not have aerodynamic coefficients for takeoff.", Doc29Acft.Name));
 
-                newProfile = std::make_unique<Doc29ProfileDepartureProcedural>(Perf, Name);
+                newProfile = std::make_unique<Doc29ProfileDepartureProcedural>(Doc29Acft, Name);
                 break;
             }
         default: GRAPE_ASSERT(false);
             break;
         }
 
-        auto [doc29Prof, added] = Perf.DepartureProfiles.add(Name, std::move(newProfile));
+        auto [doc29Prof, added] = Doc29Acft.DepartureProfiles.add(Name, std::move(newProfile));
         if (added)
             m_Db.insert(Schema::doc29_performance_profiles, {}, std::make_tuple(doc29Prof->parentDoc29Performance().Name, OperationTypes.toString(doc29Prof->operationType()), doc29Prof->Name, Doc29Profile::Types.toString(doc29Prof->type())));
         else
-            throw GrapeException(std::format("Departure profile '{}' already exists in aircraft '{}'.", Name, Perf.Name));
+            throw GrapeException(std::format("Departure profile '{}' already exists in aircraft '{}'.", Name, Doc29Acft.Name));
 
         return *doc29Prof;
     }
 
     void Doc29PerformanceManager::erasePerformances() {
-        m_Doc29Performances.eraseIf([&](const auto& Node) {
-            const auto& [name, acft] = Node;
-            if (m_Blocks.notRemovable(*acft))
+        m_Doc29Aircrafts.eraseIf([&](const auto& Node) {
+            const auto& [name, doc29Acft] = Node;
+            if (m_Blocks.notRemovable(doc29Acft))
             {
-                Log::dataLogic()->error("Removing Doc29 aircraft '{}'. There are {} aircrafts which use this Doc29 aircraft.", name, m_Blocks.blocking(*acft).size());
+                Log::dataLogic()->error("Removing Doc29 aircraft '{}'. There are {} aircrafts which use this Doc29 aircraft.", name, m_Blocks.blocking(doc29Acft).size());
                 return false;
             }
 
@@ -260,20 +233,20 @@ namespace GRAPE {
             });
     }
 
-    void Doc29PerformanceManager::erasePerformance(const Doc29Performance& Doc29Perf) {
-        if (m_Blocks.notRemovable(Doc29Perf))
+    void Doc29PerformanceManager::erasePerformance(const Doc29Aircraft& Doc29Acft) {
+        if (m_Blocks.notRemovable(Doc29Acft))
         {
-            Log::dataLogic()->error("Removing Doc29 aircraft '{}'. There are {} aircrafts which use this Doc29 aircraft.", Doc29Perf.Name, m_Blocks.blocking(Doc29Perf).size());
+            Log::dataLogic()->error("Removing Doc29 aircraft '{}'. There are {} aircrafts which use this Doc29 aircraft.", Doc29Acft.Name, m_Blocks.blocking(Doc29Acft).size());
             return;
         }
 
-        m_Db.deleteD(Schema::doc29_performance, { 0 }, std::make_tuple(Doc29Perf.Name));
+        m_Db.deleteD(Schema::doc29_performance, { 0 }, std::make_tuple(Doc29Acft.Name));
 
-        m_Doc29Performances.erase(Doc29Perf.Name);
+        m_Doc29Aircrafts.erase(Doc29Acft.Name);
     }
 
-    void Doc29PerformanceManager::eraseProfileArrivals(Doc29Performance& Doc29Perf) {
-        Doc29Perf.ArrivalProfiles.eraseIf([&](const auto& Node) {
+    void Doc29PerformanceManager::eraseProfileArrivals(Doc29Aircraft& Doc29Acft) {
+        Doc29Acft.ArrivalProfiles.eraseIf([&](const auto& Node) {
             const auto& [doc29ProfId, doc29ProfPtr] = Node;
             const auto& doc29Prof = *doc29ProfPtr;
             if (m_Blocks.notRemovable(doc29Prof))
@@ -282,13 +255,13 @@ namespace GRAPE {
                 return false;
             }
 
-            m_Db.deleteD(Schema::doc29_performance_profiles, { 0, 1, 2 }, std::make_tuple(Doc29Perf.Name, OperationTypes.toString(OperationType::Arrival), doc29ProfId));
+            m_Db.deleteD(Schema::doc29_performance_profiles, { 0, 1, 2 }, std::make_tuple(Doc29Acft.Name, OperationTypes.toString(OperationType::Arrival), doc29ProfId));
             return true;
             });
     }
 
-    void Doc29PerformanceManager::eraseProfileDepartures(Doc29Performance& Doc29Perf) {
-        Doc29Perf.DepartureProfiles.eraseIf([&](const auto& Node) {
+    void Doc29PerformanceManager::eraseProfileDepartures(Doc29Aircraft& Doc29Acft) {
+        Doc29Acft.DepartureProfiles.eraseIf([&](const auto& Node) {
             const auto& [doc29ProfId, doc29ProfPtr] = Node;
             const auto& doc29Prof = *doc29ProfPtr;
             if (m_Blocks.notRemovable(doc29Prof))
@@ -297,7 +270,7 @@ namespace GRAPE {
                 return false;
             }
 
-            m_Db.deleteD(Schema::doc29_performance_profiles, { 0, 1, 2 }, std::make_tuple(Doc29Perf.Name, OperationTypes.toString(OperationType::Departure), doc29ProfId));
+            m_Db.deleteD(Schema::doc29_performance_profiles, { 0, 1, 2 }, std::make_tuple(Doc29Acft.Name, OperationTypes.toString(OperationType::Departure), doc29ProfId));
             return true;
             });
     }
@@ -313,50 +286,50 @@ namespace GRAPE {
 
         switch (Doc29Prof.operationType())
         {
-        case OperationType::Arrival: m_Doc29Performances(Doc29Prof.parentDoc29Performance().Name)->ArrivalProfiles.erase(Doc29Prof.Name);
+        case OperationType::Arrival: m_Doc29Aircrafts(Doc29Prof.parentDoc29Performance().Name).ArrivalProfiles.erase(Doc29Prof.Name);
             break;
-        case OperationType::Departure: m_Doc29Performances(Doc29Prof.parentDoc29Performance().Name)->DepartureProfiles.erase(Doc29Prof.Name);
+        case OperationType::Departure: m_Doc29Aircrafts(Doc29Prof.parentDoc29Performance().Name).DepartureProfiles.erase(Doc29Prof.Name);
             break;
         default: GRAPE_ASSERT(false);
             break;
         }
     }
 
-    bool Doc29PerformanceManager::updateKeyPerformance(Doc29Performance& Doc29Perf, const std::string Id) {
-        if (Doc29Perf.Name.empty())
+    bool Doc29PerformanceManager::updateKeyPerformance(Doc29Aircraft& Doc29Acft, const std::string Id) {
+        if (Doc29Acft.Name.empty())
         {
             Log::dataLogic()->error("Updating Doc29 aircraft '{}'. Empty name not allowed.", Id);
-            Doc29Perf.Name = Id;
+            Doc29Acft.Name = Id;
             return false;
         }
 
-        const bool updated = m_Doc29Performances.update(Id, Doc29Perf.Name);
+        const bool updated = m_Doc29Aircrafts.update(Id, Doc29Acft.Name);
 
-        if (updated) { m_Db.update(Schema::doc29_performance, { 0 }, std::make_tuple(Doc29Perf.Name), { 0 }, std::make_tuple(Id)); }
+        if (updated) { m_Db.update(Schema::doc29_performance, { 0 }, std::make_tuple(Doc29Acft.Name), { 0 }, std::make_tuple(Id)); }
         else
         {
-            Log::dataLogic()->error("Updating Doc29 aircraft '{}'. Aircraft new name '{}' already exists in this study.", Id, Doc29Perf.Name);
-            Doc29Perf.Name = Id;
+            Log::dataLogic()->error("Updating Doc29 aircraft '{}'. Aircraft new name '{}' already exists in this study.", Id, Doc29Acft.Name);
+            Doc29Acft.Name = Id;
         }
 
         return updated;
     }
 
-    bool Doc29PerformanceManager::updateKeyAerodynamicCoefficients(Doc29Performance& Doc29Perf, const std::string Id) const {
-        auto& coeffs = Doc29Perf.AerodynamicCoefficients(Id);
+    bool Doc29PerformanceManager::updateKeyAerodynamicCoefficients(Doc29Aircraft& Doc29Acft, const std::string Id) const {
+        auto& coeffs = Doc29Acft.AerodynamicCoefficients(Id);
         if (coeffs.Name.empty())
         {
-            Log::dataLogic()->error("Updating aerodynamic coefficients '{}' in Doc29 aircraft '{}'. Empty name not allowed.", Id, Doc29Perf.Name);
+            Log::dataLogic()->error("Updating aerodynamic coefficients '{}' in Doc29 aircraft '{}'. Empty name not allowed.", Id, Doc29Acft.Name);
             coeffs.Name = Id;
             return false;
         }
 
-        const bool updated = Doc29Perf.AerodynamicCoefficients.update(Id, coeffs.Name);
+        const bool updated = Doc29Acft.AerodynamicCoefficients.update(Id, coeffs.Name);
 
-        if (updated) { m_Db.update(Schema::doc29_performance_aerodynamic_coefficients, { 1 }, std::make_tuple(coeffs.Name), { 0, 1 }, std::make_tuple(Doc29Perf.Name, Id)); }
+        if (updated) { m_Db.update(Schema::doc29_performance_aerodynamic_coefficients, { 1 }, std::make_tuple(coeffs.Name), { 0, 1 }, std::make_tuple(Doc29Acft.Name, Id)); }
         else
         {
-            Log::dataLogic()->error("Updating aerodynamic coefficients '{}' in Doc29 aircraft '{}'. Coefficients new name '{}' already exists in this aircraft.", Id, Doc29Perf.Name, coeffs.Name);
+            Log::dataLogic()->error("Updating aerodynamic coefficients '{}' in Doc29 aircraft '{}'. Coefficients new name '{}' already exists in this aircraft.", Id, Doc29Acft.Name, coeffs.Name);
             coeffs.Name = Id;
         }
 
@@ -375,9 +348,9 @@ namespace GRAPE {
 
         switch (Doc29Prof.operationType())
         {
-        case OperationType::Arrival: updated = m_Doc29Performances(Doc29Prof.parentDoc29Performance().Name)->ArrivalProfiles.update(Id, Doc29Prof.Name);
+        case OperationType::Arrival: updated = m_Doc29Aircrafts(Doc29Prof.parentDoc29Performance().Name).ArrivalProfiles.update(Id, Doc29Prof.Name);
             break;
-        case OperationType::Departure: updated = m_Doc29Performances(Doc29Prof.parentDoc29Performance().Name)->DepartureProfiles.update(Id, Doc29Prof.Name);
+        case OperationType::Departure: updated = m_Doc29Aircrafts(Doc29Prof.parentDoc29Performance().Name).DepartureProfiles.update(Id, Doc29Prof.Name);
             break;
         default: GRAPE_ASSERT(false);
         }
@@ -392,34 +365,34 @@ namespace GRAPE {
         return updated;
     }
 
-    void Doc29PerformanceManager::updatePerformance(const Doc29Performance& Doc29Perf) const { m_Db.update(Schema::doc29_performance, std::make_tuple(Doc29Perf.Name, Doc29Performance::Types.toString(Doc29Perf.type())), { 0 }, std::make_tuple(Doc29Perf.Name)); }
+    void Doc29PerformanceManager::updatePerformance(const Doc29Aircraft& Doc29Acft) const { m_Db.update(Schema::doc29_performance, std::make_tuple(Doc29Acft.Name, Doc29Acft.MaximumSeaLevelStaticThrust, Doc29Thrust::Types.toString(Doc29Acft.thrust().type()), Doc29Acft.EngineBreakpointTemperature), { 0 }, std::make_tuple(Doc29Acft.Name)); }
 
-    void Doc29PerformanceManager::updateThrust(const Doc29Performance& Doc29Perf) const {
-        m_Db.deleteD(Schema::doc29_performance_thrust, { 0 }, std::make_tuple(Doc29Perf.Name));
-        m_Db.insert(Schema::doc29_performance_thrust, {}, std::make_tuple(Doc29Perf.Name, Doc29Thrust::Types.toString(Doc29Perf.thrust().type())));
-        ThrustCoefficientsInserter insertEngineCoeffs(m_Db, Doc29Perf);
+    void Doc29PerformanceManager::updateThrust(const Doc29Aircraft& Doc29Acft) const {
+        updatePerformance(Doc29Acft);
+        m_Db.deleteD(Schema::doc29_performance_thrust_ratings, { 0 }, std::make_tuple(Doc29Acft.Name));
+        ThrustCoefficientsInserter insertEngineCoeffs(m_Db, Doc29Acft);
     }
 
-    void ThrustCoefficientsInserter::visitDoc29ThrustRating(Doc29ThrustRating& Thrust) {
-        for (const auto& [thrustRating, engineCoeffs] : Thrust)
+    void ThrustCoefficientsInserter::visitDoc29ThrustRating(Doc29ThrustRating& Doc29Thr) {
+        for (const auto& [thrustRating, engineCoeffs] : Doc29Thr)
         {
             m_Db.insert(Schema::doc29_performance_thrust_ratings, {}, std::make_tuple(m_Doc29Acft.Name, Doc29Thrust::Ratings.toString(thrustRating)));
             m_Db.insert(Schema::doc29_performance_thrust_rating_coefficients, {}, std::make_tuple(m_Doc29Acft.Name, Doc29Thrust::Ratings.toString(thrustRating), engineCoeffs.E, engineCoeffs.F, engineCoeffs.Ga, engineCoeffs.Gb, engineCoeffs.H));
         }
     }
 
-    void ThrustCoefficientsInserter::visitDoc29ThrustPropeller(Doc29ThrustRatingPropeller& Thrust) {
-        for (const auto& [thrustRating, engineCoeffs] : Thrust)
+    void ThrustCoefficientsInserter::visitDoc29ThrustPropeller(Doc29ThrustRatingPropeller& Doc29Thr) {
+        for (const auto& [thrustRating, engineCoeffs] : Doc29Thr)
         {
             m_Db.insert(Schema::doc29_performance_thrust_ratings, {}, std::make_tuple(m_Doc29Acft.Name, Doc29Thrust::Ratings.toString(thrustRating)));
             m_Db.insert(Schema::doc29_performance_thrust_rating_coefficients_propeller, {}, std::make_tuple(m_Doc29Acft.Name, Doc29Thrust::Ratings.toString(thrustRating), engineCoeffs.Pe, engineCoeffs.Pp));
         }
     }
 
-    void Doc29PerformanceManager::updateAerodynamicCoefficients(const Doc29Performance& Doc29Perf) const {
-        m_Db.deleteD(Schema::doc29_performance_aerodynamic_coefficients, { 0 }, std::make_tuple(Doc29Perf.Name));
-        for (const auto& aeroCoeffs : Doc29Perf.AerodynamicCoefficients | std::views::values)
-            m_Db.insert(Schema::doc29_performance_aerodynamic_coefficients, {}, std::make_tuple(Doc29Perf.Name, aeroCoeffs.Name, Doc29AerodynamicCoefficients::Types.toString(aeroCoeffs.CoefficientType), aeroCoeffs.R, aeroCoeffs.B, aeroCoeffs.C, aeroCoeffs.D));
+    void Doc29PerformanceManager::updateAerodynamicCoefficients(const Doc29Aircraft& Doc29Acft) const {
+        m_Db.deleteD(Schema::doc29_performance_aerodynamic_coefficients, { 0 }, std::make_tuple(Doc29Acft.Name));
+        for (const auto& aeroCoeffs : Doc29Acft.AerodynamicCoefficients | std::views::values)
+            m_Db.insert(Schema::doc29_performance_aerodynamic_coefficients, {}, std::make_tuple(Doc29Acft.Name, aeroCoeffs.Name, Doc29AerodynamicCoefficients::Types.toString(aeroCoeffs.CoefficientType), aeroCoeffs.R, aeroCoeffs.B, aeroCoeffs.C, aeroCoeffs.D));
     }
 
     void Doc29PerformanceManager::updateProfile(const Doc29Profile& Doc29Prof) const {
@@ -545,27 +518,14 @@ namespace GRAPE {
         {
             // Doc29 Aircraft
             const std::string doc29AcftName = stmtAcft.getColumn(0);
-            switch (Doc29Performance::Types.fromString(stmtAcft.getColumn(1)))
-            {
-            case Doc29Performance::Type::Jet: m_Doc29Performances.add(doc29AcftName, std::make_unique<Doc29PerformanceJet>(doc29AcftName));
-                break;
-            case Doc29Performance::Type::Turboprop: m_Doc29Performances.add(doc29AcftName, std::make_unique<Doc29PerformanceTurboprop>(doc29AcftName));
-                break;
-            case Doc29Performance::Type::Piston: m_Doc29Performances.add(doc29AcftName, std::make_unique<Doc29PerformancePiston>(doc29AcftName));
-                break;
-            default: GRAPE_ASSERT(false);
-            }
-            auto& doc29Acft = *m_Doc29Performances(doc29AcftName);
+            auto [doc29Acft, added] = m_Doc29Aircrafts.add(doc29AcftName, doc29AcftName);
+            GRAPE_ASSERT(added);
+
+            doc29Acft.MaximumSeaLevelStaticThrust = stmtAcft.getColumn(1);
+            doc29Acft.setThrustType(Doc29Thrust::Types.fromString(stmtAcft.getColumn(2)));
+            doc29Acft.EngineBreakpointTemperature = stmtAcft.getColumn(3);
 
             // Thrust
-            Statement stmtThrust(m_Db, Schema::doc29_performance_thrust.querySelect({ 1 }, { 0 }));
-            stmtThrust.bindValues(doc29AcftName);
-            stmtThrust.step();
-            if (stmtThrust.hasRow())
-                doc29Acft.setThrustType(Doc29Thrust::Types.fromString(stmtThrust.getColumn(0)));
-            else
-                m_Db.insert(Schema::doc29_performance_thrust, {}, std::make_tuple(doc29AcftName, Doc29Thrust::Types.toString(doc29Acft.thrust().type())));
-
             ThrustCoefficientsLoader engineCoeffsLoader(m_Db, doc29Acft);
 
             // Aerodynamic Coefficients
@@ -630,14 +590,14 @@ namespace GRAPE {
         }
     }
 
-    void ThrustCoefficientsLoader::visitDoc29ThrustRating(Doc29ThrustRating& Thrust) {
+    void ThrustCoefficientsLoader::visitDoc29ThrustRating(Doc29ThrustRating& Doc29Thr) {
         Statement stmt(m_Db, Schema::doc29_performance_thrust_ratings.querySelect({ 1 }, { 0 }));
         stmt.bindValues(m_Doc29Acft.Name);
         stmt.step();
         while (stmt.hasRow())
         {
             const std::string thrustRatingStr = stmt.getColumn(0);
-            auto [engineCoeffs, added] = Thrust.Coeffs.add(Doc29Thrust::Ratings.fromString(thrustRatingStr));
+            auto [engineCoeffs, added] = Doc29Thr.Coeffs.add(Doc29Thrust::Ratings.fromString(thrustRatingStr));
             GRAPE_ASSERT(added);
 
             Statement stmtCoeffs(m_Db, Schema::doc29_performance_thrust_rating_coefficients.querySelect({ 2, 3, 4, 5, 6 }, { 0, 1 }));
@@ -655,14 +615,14 @@ namespace GRAPE {
         }
     }
 
-    void ThrustCoefficientsLoader::visitDoc29ThrustPropeller(Doc29ThrustRatingPropeller& Thrust) {
+    void ThrustCoefficientsLoader::visitDoc29ThrustPropeller(Doc29ThrustRatingPropeller& Doc29Thr) {
         Statement stmt(m_Db, Schema::doc29_performance_thrust_ratings.querySelect({ 1 }, { 0 }));
         stmt.bindValues(m_Doc29Acft.Name);
         stmt.step();
         while (stmt.hasRow())
         {
             const std::string thrustRatingStr = stmt.getColumn(0);
-            auto [engineCoeffs, added] = Thrust.Coeffs.add(Doc29Thrust::Ratings.fromString(thrustRatingStr));
+            auto [engineCoeffs, added] = Doc29Thr.Coeffs.add(Doc29Thrust::Ratings.fromString(thrustRatingStr));
             GRAPE_ASSERT(added);
 
             Statement stmtCoeffs(m_Db, Schema::doc29_performance_thrust_rating_coefficients_propeller.querySelect({ 2, 3 }, { 0, 1 }));
@@ -743,12 +703,12 @@ namespace GRAPE {
         }
     }
 
-    void ProfileLoader::visitDoc29ProfileDepartureProcedural(Doc29ProfileDepartureProcedural& Profile) {
+    void ProfileLoader::visitDoc29ProfileDepartureProcedural(Doc29ProfileDepartureProcedural& Doc29Prof) {
         std::size_t thrustCutbackIndex = 0;
         std::size_t stepCount = 1; // Takeoff always exists
 
         Statement stmt(m_Db, Schema::doc29_performance_profiles_departure_procedural.querySelect({ 4, 5, 6, 7, 8 }, { 0, 1, 2 }, { 3 }));
-        stmt.bindValues(Profile.parentDoc29Performance().Name, OperationTypes.toString(Profile.operationType()), Profile.Name);
+        stmt.bindValues(Doc29Prof.parentDoc29Performance().Name, OperationTypes.toString(Doc29Prof.operationType()), Doc29Prof.Name);
         stmt.step();
         while (stmt.hasRow())
         {
@@ -759,13 +719,13 @@ namespace GRAPE {
 
             switch (Doc29ProfileDepartureProcedural::StepTypes.fromString(stmt.getColumn(0)))
             {
-            case Doc29ProfileDepartureProcedural::StepType::Takeoff: Profile.setTakeoffParameters(aeroCoeffId, param1);
+            case Doc29ProfileDepartureProcedural::StepType::Takeoff: Doc29Prof.setTakeoffParameters(aeroCoeffId, param1);
                 break;
             case Doc29ProfileDepartureProcedural::StepType::Climb:
                 {
                     if (thrustCutback)
                         thrustCutbackIndex = stepCount;
-                    Profile.addClimb(aeroCoeffId, param1);
+                    Doc29Prof.addClimb(aeroCoeffId, param1);
                     stepCount++;
                     break;
                 }
@@ -773,7 +733,7 @@ namespace GRAPE {
                 {
                     if (thrustCutback)
                         thrustCutbackIndex = stepCount;
-                    Profile.addClimbAccelerate(aeroCoeffId, param1, param2);
+                    Doc29Prof.addClimbAccelerate(aeroCoeffId, param1, param2);
                     stepCount++;
                     break;
                 }
@@ -781,7 +741,7 @@ namespace GRAPE {
                 {
                     if (thrustCutback)
                         thrustCutbackIndex = stepCount;
-                    Profile.addClimbAcceleratePercentage(aeroCoeffId, param1, param2);
+                    Doc29Prof.addClimbAcceleratePercentage(aeroCoeffId, param1, param2);
                     stepCount++;
                     break;
                 }
@@ -791,6 +751,6 @@ namespace GRAPE {
             stmt.step();
         }
         if (thrustCutbackIndex != 0)
-            Profile.setThrustCutback(thrustCutbackIndex);
+            Doc29Prof.setThrustCutback(thrustCutbackIndex);
     }
 }

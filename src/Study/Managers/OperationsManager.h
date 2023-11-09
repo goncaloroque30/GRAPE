@@ -26,25 +26,25 @@ namespace GRAPE {
         [[nodiscard]] const auto& track4dArrivals() const { return m_Track4dArrivals; }
         [[nodiscard]] const auto& track4dDepartures() const { return m_Track4dDepartures; }
 
-        std::pair<FlightArrival&, bool> addArrivalFlight(const RouteArrival& RouteIn, const Aircraft& AircraftIn, const std::string& Name = "");
+        std::pair<FlightArrival&, bool> addArrivalFlight(const std::string& Name, const Aircraft& AircraftIn);
         bool addArrivalFlight(const std::string& Name = "");
-        std::pair<FlightDeparture&, bool> addDepartureFlight(const RouteDeparture& RouteIn, const Aircraft& AircraftIn, const std::string& Name = "");
+        std::pair<FlightDeparture&, bool> addDepartureFlight(const std::string& Name, const Aircraft& AircraftIn);
         bool addDepartureFlight(const std::string& Name = "");
-        std::pair<Track4dArrival&, bool> addArrivalTrack4d(const Aircraft& AircraftIn, const std::string& Name);
+        std::pair<Track4dArrival&, bool> addArrivalTrack4d(const std::string& Name, const Aircraft& AircraftIn);
         bool addArrivalTrack4d(const std::string& Name = "");
-        std::pair<Track4dDeparture&, bool> addDepartureTrack4d(const Aircraft& AircraftIn, const std::string& Name);
+        std::pair<Track4dDeparture&, bool> addDepartureTrack4d(const std::string& Name, const Aircraft& AircraftIn);
         bool addDepartureTrack4d(const std::string& Name = "");
 
-        FlightArrival& addArrivalFlightE(const RouteArrival& RouteIn, const Aircraft& AircraftIn, const std::string& Name);
-        FlightDeparture& addDepartureFlightE(const RouteDeparture& RouteIn, const Aircraft& AircraftIn, const std::string& Name);
-        Track4dArrival& addArrivalTrack4dE(const Aircraft& AircraftIn, const std::string& Name);
-        Track4dDeparture& addDepartureTrack4dE(const Aircraft& AircraftIn, const std::string& Name);
+        FlightArrival& addArrivalFlightE(const std::string& Name, const Aircraft& AircraftIn);
+        FlightDeparture& addDepartureFlightE(const std::string& Name, const Aircraft& AircraftIn);
+        Track4dArrival& addArrivalTrack4dE(const std::string& Name, const Aircraft& AircraftIn);
+        Track4dDeparture& addDepartureTrack4dE(const std::string& Name, const Aircraft& AircraftIn);
 
         void setAircraft(FlightArrival& Op, const Aircraft& Acft) const;
         void setAircraft(FlightDeparture& Op, const Aircraft& Acft) const;
         void setAircraft(Track4d& Op, const Aircraft& Acft) const;
-        void setRoute(FlightArrival& Op, const RouteArrival& Rte) const;
-        void setRoute(FlightDeparture& Op, const RouteDeparture& Rte) const;
+        void setRoute(FlightArrival& Op, const RouteArrival* Rte) const;
+        void setRoute(FlightDeparture& Op, const RouteDeparture* Rte) const;
         void setDoc29Profile(FlightArrival& Op, const Doc29ProfileArrival* Profile) const;
         void setDoc29Profile(FlightDeparture& Op, const Doc29ProfileDeparture* Profile) const;
 

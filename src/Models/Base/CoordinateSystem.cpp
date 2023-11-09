@@ -387,7 +387,7 @@ namespace GRAPE {
          * Dist = 223.388 m
          * AziStart12 = 0.0 deg
          */
-        SUBCASE("Northpole") {
+        SUBCASE("North Pole") {
             lc = LocalCartesian(0.0, 90.0);
 
             // Distance
@@ -763,7 +763,7 @@ namespace GRAPE {
          * Dist = 223.388 m
          * AziStart12 = 0.0 deg
          */
-        SUBCASE("Northpole") {
+        SUBCASE("North Pole") {
             // Distance
             CHECK_EQ(geo.distance(0.0, 89.999, 180.0, 89.999), doctest::Approx(223.388).epsilon(Constants::PrecisionTest));
 
@@ -868,7 +868,7 @@ namespace GRAPE {
             CHECK_EQ(hdgEnd1, doctest::Approx(normalizeHeading(90.0 + 180)).epsilon(Constants::PrecisionTest));
 
             // Intersection Between
-            /// Wold fail (nan) if angle hits exactly 90 degrees.
+            /// Would fail (nan) if angle hits exactly 90 degrees.
             intersection = geo.intersection(179.999, 0.0, -179.999, 0.0, -179.9995, 0.0002);
             CHECK_EQ(std::get<0>(intersection), doctest::Approx(-179.9995).epsilon(Constants::PrecisionTest));
             CHECK_EQ(std::get<1>(intersection), doctest::Approx(0.0).epsilon(Constants::PrecisionTest));
@@ -881,7 +881,7 @@ namespace GRAPE {
             CHECK_EQ(CoordinateSystem::Intersection::Ahead, std::get<2>(intersection));
 
             // Intersection Behind
-            /// Wold fail (nan) if angle hits exactly 90 degrees.
+            /// Would fail (nan) if angle hits exactly 90 degrees.
             intersection = geo.intersection(179.999, 0.0, -179.999, 0.0, 179.998, 0.0001);
             CHECK_EQ(std::get<0>(intersection), doctest::Approx(179.998).epsilon(Constants::PrecisionTest));
             CHECK_EQ(std::get<1>(intersection), doctest::Approx(0.0).epsilon(Constants::PrecisionTest));

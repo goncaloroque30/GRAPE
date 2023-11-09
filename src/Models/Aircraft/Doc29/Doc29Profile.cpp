@@ -4,13 +4,13 @@
 
 #include "Doc29Profile.h"
 
-#include "Doc29Performance.h"
+#include "Doc29Aircraft.h"
 
 #include "Base/Conversions.h"
 
 namespace GRAPE {
     // Arrival Points
-    Doc29ProfileArrivalPoints::Doc29ProfileArrivalPoints(Doc29Performance& Doc29PerformanceIn, std::string_view NameIn) : Doc29ProfileArrival(Doc29PerformanceIn, NameIn) {}
+    Doc29ProfileArrivalPoints::Doc29ProfileArrivalPoints(Doc29Aircraft& Doc29PerformanceIn, std::string_view NameIn) : Doc29ProfileArrival(Doc29PerformanceIn, NameIn) {}
 
     void Doc29ProfileArrivalPoints::addPoint() noexcept {
         if (empty())
@@ -114,7 +114,7 @@ namespace GRAPE {
     void Doc29ProfileArrivalPoints::accept(Doc29ProfileArrivalVisitor& Vis) const { Vis.visitDoc29ProfileArrivalPoints(*this); }
 
     // Departure Points
-    Doc29ProfileDeparturePoints::Doc29ProfileDeparturePoints(Doc29Performance& Doc29PerformanceIn, std::string_view NameIn) : Doc29ProfileDeparture(Doc29PerformanceIn, NameIn) {}
+    Doc29ProfileDeparturePoints::Doc29ProfileDeparturePoints(Doc29Aircraft& Doc29PerformanceIn, std::string_view NameIn) : Doc29ProfileDeparture(Doc29PerformanceIn, NameIn) {}
 
     void Doc29ProfileDeparturePoints::addPoint() noexcept {
         if (empty())
@@ -215,7 +215,7 @@ namespace GRAPE {
 
     void Doc29ProfileDeparturePoints::accept(Doc29ProfileDepartureVisitor& Vis) const { Vis.visitDoc29ProfileDeparturePoints(*this); }
 
-    Doc29ProfileArrivalProcedural::Doc29ProfileArrivalProcedural(Doc29Performance& Doc29PerformanceIn, std::string_view NameIn) : Doc29ProfileArrival(Doc29PerformanceIn, NameIn) {
+    Doc29ProfileArrivalProcedural::Doc29ProfileArrivalProcedural(Doc29Aircraft& Doc29PerformanceIn, std::string_view NameIn) : Doc29ProfileArrival(Doc29PerformanceIn, NameIn) {
         const Doc29AerodynamicCoefficients* aeroCoeffs = nullptr;
         for (const auto& coeffs : parentDoc29Performance().AerodynamicCoefficients | std::views::values)
         {
@@ -632,7 +632,7 @@ namespace GRAPE {
 
     void Doc29ProfileArrivalProcedural::VisitorState::operator()(const GroundDecelerate& GroundDecelerateStep) const { return; }
 
-    Doc29ProfileDepartureProcedural::Doc29ProfileDepartureProcedural(Doc29Performance& Doc29PerformanceIn, const std::string& NameIn) : Doc29ProfileDeparture(Doc29PerformanceIn, NameIn) {
+    Doc29ProfileDepartureProcedural::Doc29ProfileDepartureProcedural(Doc29Aircraft& Doc29PerformanceIn, const std::string& NameIn) : Doc29ProfileDeparture(Doc29PerformanceIn, NameIn) {
         const Doc29AerodynamicCoefficients* aeroCoeffs = nullptr;
         for (const auto& coeffs : parentDoc29Performance().AerodynamicCoefficients | std::views::values)
         {

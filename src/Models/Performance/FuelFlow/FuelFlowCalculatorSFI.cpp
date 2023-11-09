@@ -12,7 +12,7 @@ namespace GRAPE {
         const SFI& sfi = *Op.aircraft().SFIFuel;
 
         for (auto& pt : Perf | std::views::values)
-            pt.FuelFlowPerEng = sfi.arrivalFuelFlow(pt.AltitudeMsl, pt.TrueAirspeed, pt.CorrNetThrustPerEng, Op.aircraft().MaximumSeaLevelStaticThrust, atm);
+            pt.FuelFlowPerEng = sfi.arrivalFuelFlow(pt.AltitudeMsl, pt.TrueAirspeed, pt.CorrNetThrustPerEng, atm);
     }
 
     void FuelFlowCalculatorSFI::calculate(const OperationDeparture& Op, PerformanceOutput& Perf) const {

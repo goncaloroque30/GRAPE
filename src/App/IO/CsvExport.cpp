@@ -11,22 +11,30 @@
 namespace GRAPE::IO::CSV {
     void exportDoc29Performance(const std::string& CsvPath) {
         const auto& study = Application::study();
+        const auto& set = Application::settings();
 
         Csv csv;
         try { csv.setExport(CsvPath); }
         catch (const std::exception& err)
         {
-            Log::io()->error("Exporting Doc29 Performance to '{}'. {}", CsvPath, err.what());
+            Log::io()->error("Exporting Doc29 Aircraft to '{}'. {}", CsvPath, err.what());
             return;
         }
 
-        csv.setColumnNames("ID", "Type");
+        csv.setColumnNames(
+            "ID",
+            std::format("Maximum Sea Level Static Thrust ({})", set.ThrustUnits.shortName()),
+            "Thrust Type",
+            std::format("Engine Breakpoint Temperature ({})", set.TemperatureUnits.shortName())
+        );
 
         std::size_t row = 0;
-        for (const auto& doc29Perf : study.Doc29Performances)
+        for (const auto& doc29Acft : study.Doc29Aircrafts)
         {
-            csv.setCell(row, 0, doc29Perf->Name);
-            csv.setCell(row, 1, Doc29Performance::Types.toString(doc29Perf->type()));
+            csv.setCell(row, 0, doc29Acft.Name);
+            csv.setCell(row, 1, set.ThrustUnits.fromSi(doc29Acft.MaximumSeaLevelStaticThrust));
+            csv.setCell(row, 2, Doc29Thrust::Types.toString(doc29Acft.thrust().type()));
+            csv.setCell(row, 3, set.TemperatureUnits.fromSi(doc29Acft.EngineBreakpointTemperature));
 
             ++row;
         }
@@ -34,7 +42,7 @@ namespace GRAPE::IO::CSV {
         if (row)
         {
             csv.write();
-            Log::io()->info("Exported Doc29 Performance to '{}'.", CsvPath);
+            Log::io()->info("Exported Doc29 Aircraft to '{}'.", CsvPath);
         }
     }
 
@@ -61,12 +69,11 @@ namespace GRAPE::IO::CSV {
         );
 
         std::size_t row = 0;
-        for (const auto& doc29PerfPtr : study.Doc29Performances)
+        for (const auto& doc29Acft : study.Doc29Aircrafts)
         {
-            const auto& doc29Perf = *doc29PerfPtr;
-            for (const auto& [coeffsId, coeffs] : doc29Perf.AerodynamicCoefficients)
+            for (const auto& [coeffsId, coeffs] : doc29Acft.AerodynamicCoefficients)
             {
-                csv.setCell(row, 0, doc29Perf.Name);
+                csv.setCell(row, 0, doc29Acft.Name);
                 csv.setCell(row, 1, coeffsId);
                 csv.setCell(row, 2, Doc29AerodynamicCoefficients::Types.toString(coeffs.CoefficientType));
                 csv.setCell(row, 3, coeffs.R);
@@ -92,13 +99,13 @@ namespace GRAPE::IO::CSV {
 
     namespace {
         struct Doc29ThrustExporter : Doc29ThrustVisitor {
-            Doc29ThrustExporter(Csv& CsvFile, std::size_t& Row, const Doc29Performance& Doc29Perf, const Doc29Thrust& Doc29Thr) : m_Csv(CsvFile), m_Row(Row), m_Doc29Perf(Doc29Perf) { Doc29Thr.accept(*this); }
+            Doc29ThrustExporter(Csv& CsvFile, std::size_t& Row, const Doc29Aircraft& Doc29Acft, const Doc29Thrust& Doc29Thr) : m_Csv(CsvFile), m_Row(Row), m_Doc29Acft(Doc29Acft) { Doc29Thr.accept(*this); }
             void visitDoc29ThrustRating(const Doc29ThrustRating& Doc29Thr) override;
             void visitDoc29ThrustPropeller(const Doc29ThrustRatingPropeller& Doc29Thr) override;
         private:
             Csv& m_Csv;
             std::size_t& m_Row;
-            const Doc29Performance& m_Doc29Perf;
+            const Doc29Aircraft& m_Doc29Acft;
         };
     }
 
@@ -115,7 +122,7 @@ namespace GRAPE::IO::CSV {
         }
 
         csv.setColumnNames(
-            "Doc29 Performance ID",
+            "Doc29 Aircraft ID",
             "Thrust Rating",
             std::format("E ({})", set.ThrustUnits.shortName()),
             std::format("F ({})", set.Doc29ThrustFUnits.shortName()),
@@ -125,11 +132,10 @@ namespace GRAPE::IO::CSV {
         );
 
         std::size_t row = 0;
-        for (const auto& doc29PerfPtr : study.Doc29Performances)
+        for (const auto& doc29Acft : study.Doc29Aircrafts)
         {
-            const auto& doc29Perf = *doc29PerfPtr;
-            if (doc29Perf.thrust().type() == Doc29Thrust::Type::Rating)
-                Doc29ThrustExporter(csv, row, doc29Perf, doc29Perf.thrust());
+            if (doc29Acft.thrust().type() == Doc29Thrust::Type::Rating)
+                Doc29ThrustExporter(csv, row, doc29Acft, doc29Acft.thrust());
         }
 
         if (row)
@@ -143,11 +149,10 @@ namespace GRAPE::IO::CSV {
 
         Csv& csv = m_Csv;
         std::size_t& row = m_Row;
-        const auto& doc29Perf = m_Doc29Perf;
 
         for (const auto& [rating, coeffs] : Doc29Thr)
         {
-            csv.setCell(row, 0, doc29Perf.Name);
+            csv.setCell(row, 0, m_Doc29Acft.Name);
             csv.setCell(row, 1, Doc29Thrust::Ratings.toString(rating));
             csv.setCell(row, 2, set.ThrustUnits.fromSi(coeffs.E));
             csv.setCell(row, 3, set.Doc29ThrustFUnits.fromSi(coeffs.F));
@@ -171,18 +176,17 @@ namespace GRAPE::IO::CSV {
         }
 
         csv.setColumnNames(
-            "Doc29 Performance ID",
+            "Doc29 Aircraft ID",
             "Thrust Rating",
             "Propeller Efficiency",
             std::format("Propeller Power ({})", set.PowerUnits.shortName())
         );
 
         std::size_t row = 0;
-        for (const auto& doc29PerfPtr : study.Doc29Performances)
+        for (const auto& doc29Acft : study.Doc29Aircrafts)
         {
-            const auto& doc29Perf = *doc29PerfPtr;
-            if (doc29Perf.thrust().type() == Doc29Thrust::Type::RatingPropeller)
-                Doc29ThrustExporter(csv, row, doc29Perf, doc29Perf.thrust());
+            if (doc29Acft.thrust().type() == Doc29Thrust::Type::RatingPropeller)
+                Doc29ThrustExporter(csv, row, doc29Acft, doc29Acft.thrust());
         }
 
         if (row)
@@ -197,11 +201,10 @@ namespace GRAPE::IO::CSV {
 
         Csv& csv = m_Csv;
         std::size_t& row = m_Row;
-        const auto& doc29Perf = m_Doc29Perf;
 
         for (const auto& [rating, coeffs] : Doc29Thr)
         {
-            csv.setCell(row, 0, doc29Perf.Name);
+            csv.setCell(row, 0, m_Doc29Acft.Name);
             csv.setCell(row, 1, Doc29Thrust::Ratings.toString(rating));
             csv.setCell(row, 2, coeffs.Pe);
             csv.setCell(row, 3, set.PowerUnits.fromSi(coeffs.Pp));
@@ -235,7 +238,7 @@ namespace GRAPE::IO::CSV {
         }
 
         csv.setColumnNames(
-            "Doc29 Performance ID",
+            "Doc29 Aircraft ID",
             "Operation",
             "Profile ID",
             std::format("Cumulative Ground Distance ({})", set.DistanceUnits.shortName()),
@@ -246,17 +249,15 @@ namespace GRAPE::IO::CSV {
 
         std::size_t row = 0;
 
-        for (const auto& doc29PerfPtr : study.Doc29Performances)
+        for (const auto& doc29Acft : study.Doc29Aircrafts)
         {
-            const auto& doc29Perf = *doc29PerfPtr;
-
-            for (const auto& [profName, arrProfPtr] : doc29Perf.ArrivalProfiles)
+            for (const auto& [profName, arrProfPtr] : doc29Acft.ArrivalProfiles)
             {
                 const auto& arrProf = *arrProfPtr;
                 if (arrProf.type() == Doc29Profile::Type::Points)
                     Doc29ProfileExporter(csv, row, arrProf);
             }
-            for (const auto& [profName, depProfPtr] : doc29Perf.DepartureProfiles)
+            for (const auto& [profName, depProfPtr] : doc29Acft.DepartureProfiles)
             {
                 const auto& depProf = *depProfPtr;
                 if (depProf.type() == Doc29Profile::Type::Points)
@@ -322,7 +323,7 @@ namespace GRAPE::IO::CSV {
         }
 
         csv.setColumnNames(
-            "Doc29 Performance ID",
+            "Doc29 Aircraft ID",
             "Profile ID",
             "Step Type",
             "Aerodynamic Coefficient ID",
@@ -339,10 +340,9 @@ namespace GRAPE::IO::CSV {
         );
 
         std::size_t row = 0;
-        for (const auto& doc29PerfPtr : study.Doc29Performances)
+        for (const auto& doc29Acft : study.Doc29Aircrafts)
         {
-            const auto& doc29Perf = *doc29PerfPtr;
-            for (const auto& [profName, arrProfPtr] : doc29Perf.ArrivalProfiles)
+            for (const auto& [profName, arrProfPtr] : doc29Acft.ArrivalProfiles)
             {
                 const auto& arrProf = *arrProfPtr;
                 if (arrProf.type() == Doc29Profile::Type::Procedural)
@@ -425,7 +425,7 @@ namespace GRAPE::IO::CSV {
         }
 
         csv.setColumnNames(
-            "Doc29 Performance ID",
+            "Doc29 Aircraft ID",
             "Profile ID",
             "Step Type",
             "Thrust Cutback",
@@ -438,10 +438,9 @@ namespace GRAPE::IO::CSV {
         );
 
         std::size_t row = 0;
-        for (const auto& doc29PerfPtr : study.Doc29Performances)
+        for (const auto& doc29Acft : study.Doc29Aircrafts)
         {
-            const auto& doc29Perf = *doc29PerfPtr;
-            for (const auto& [profName, depProfPtr] : doc29Perf.DepartureProfiles)
+            for (const auto& [profName, depProfPtr] : doc29Acft.DepartureProfiles)
             {
                 const auto& depProf = *depProfPtr;
                 if (depProf.type() == Doc29Profile::Type::Procedural)
@@ -646,6 +645,7 @@ namespace GRAPE::IO::CSV {
 
         csv.setColumnNames(
             "ID",
+            std::format("Maximum Sea Level Static Thrust ({})", set.ThrustUnits.shortName()),
             std::format("Fuel Flow Idle ({})", set.FuelFlowUnits.shortName()),
             std::format("Fuel Flow Approach ({})", set.FuelFlowUnits.shortName()),
             std::format("Fuel Flow Climb Out ({})", set.FuelFlowUnits.shortName()),
@@ -665,7 +665,25 @@ namespace GRAPE::IO::CSV {
             std::format("EI NOx Idle ({})", set.EmissionIndexUnits.shortName()),
             std::format("EI NOx Approach ({})", set.EmissionIndexUnits.shortName()),
             std::format("EI NOx Climb Out ({})", set.EmissionIndexUnits.shortName()),
-            std::format("EI NOx Takeoff ({})", set.EmissionIndexUnits.shortName())
+            std::format("EI NOx Takeoff ({})", set.EmissionIndexUnits.shortName()),
+            "Mixed Nozzle Flag",
+            "Bypass Ratio",
+            "Air to Fuel Ratio Idle",
+            "Air to Fuel Ratio Approach",
+            "Air to Fuel Ratio Climb Out",
+            "Air to Fuel Ratio Takeoff",
+            "Smoke Number Idle",
+            "Smoke Number Approach",
+            "Smoke Number Climb Out",
+            "Smoke Number Takeoff",
+            "EI nvPM Idle (mg/kg)",
+            "EI nvPM Approach (mg/kg)",
+            "EI nvPM Climb Out (mg/kg)",
+            "EI nvPM Takeoff (mg/kg)",
+            "EI nvPM Number Idle",
+            "EI nvPM Number Approach",
+            "EI nvPM Number Climb Out",
+            "EI nvPM Number Takeoff"
         );
 
         std::size_t row = 0;
@@ -675,6 +693,9 @@ namespace GRAPE::IO::CSV {
 
             // Name
             csv.setCell(row, col++, lto.Name);
+
+            // Maximum Sea Level Static Thrust
+            csv.setCell(row, col++, set.ThrustUnits.fromSi(lto.MaximumSeaLevelStaticThrust));
 
             // Fuel Flow
             for (const double fuelFlow : lto.FuelFlows)
@@ -696,6 +717,29 @@ namespace GRAPE::IO::CSV {
             for (const double emiNOx : lto.EmissionIndexesNOx)
                 csv.setCell(row, col++, set.EmissionIndexUnits.fromSi(emiNOx));
 
+            // Mixed Nozzle & Bypass Ratio
+            csv.setCell(row, col++, static_cast<int>(lto.MixedNozzle));
+            csv.setCell(row, col++, lto.BypassRatio);
+
+            // Air to Fuel Ratio
+            for (const double afr : lto.AirFuelRatios)
+                csv.setCell(row, col++, afr);
+
+            // Smoke Number
+            for (const double sn : lto.SmokeNumbers)
+                if (!std::isnan(sn))
+                    csv.setCell(row, col++, sn);
+
+            // nvPM
+            for (const double nvpm : lto.EmissionIndexesNVPM)
+                if (!std::isnan(nvpm))
+                    csv.setCell(row, col++, toMilligramsPerKilogram(nvpm));
+
+            // nvPM Number
+            for (const double nvpmNumber : lto.EmissionIndexesNVPMNumber)
+                if (!std::isnan(nvpmNumber))
+                    csv.setCell(row, col++, set.EmissionIndexUnits.fromSi(nvpmNumber));
+
             ++row;
         }
 
@@ -708,6 +752,7 @@ namespace GRAPE::IO::CSV {
 
     void exportSFI(const std::string& CsvPath) {
         const auto& study = Application::study();
+        const auto& set = Application::settings();
 
         Csv csv;
         try { csv.setExport(CsvPath); }
@@ -719,6 +764,7 @@ namespace GRAPE::IO::CSV {
 
         csv.setColumnNames(
             "ID",
+            std::format("Maximum Sea Level Static Thrust ({})", set.ThrustUnits.shortName()),
             "A",
             "B1",
             "B2",
@@ -733,14 +779,15 @@ namespace GRAPE::IO::CSV {
         for (const auto& sfi : study.SFIs)
         {
             csv.setCell(row, 0, sfi.Name);
-            csv.setCell(row, 1, sfi.A);
-            csv.setCell(row, 2, sfi.B1);
-            csv.setCell(row, 3, sfi.B2);
-            csv.setCell(row, 4, sfi.B3);
-            csv.setCell(row, 5, sfi.K1);
-            csv.setCell(row, 6, sfi.K2);
-            csv.setCell(row, 7, sfi.K3);
-            csv.setCell(row, 8, sfi.K4);
+            csv.setCell(row, 1, set.ThrustUnits.fromSi(sfi.MaximumSeaLevelStaticThrust));
+            csv.setCell(row, 2, sfi.A);
+            csv.setCell(row, 3, sfi.B1);
+            csv.setCell(row, 4, sfi.B2);
+            csv.setCell(row, 5, sfi.B3);
+            csv.setCell(row, 6, sfi.K1);
+            csv.setCell(row, 7, sfi.K2);
+            csv.setCell(row, 8, sfi.K3);
+            csv.setCell(row, 9, sfi.K4);
             ++row;
         }
 
@@ -766,9 +813,7 @@ namespace GRAPE::IO::CSV {
         csv.setColumnNames(
             "ID",
             "Number of Engines",
-            std::format("Maximum Sea Level Static Thrust ({})", set.ThrustUnits.shortName()),
-            std::format("Engine Breakpoint Temperature ({})", set.TemperatureUnits.shortName()),
-            "Doc29 Performance ID",
+            "Doc29 Aircraft ID",
             "SFI ID",
             "LTO ID",
             "Doc29 Noise ID",
@@ -781,18 +826,16 @@ namespace GRAPE::IO::CSV {
         {
             csv.setCell(row, 0, acft.Name);
             csv.setCell(row, 1, acft.EngineCount);
-            csv.setCell(row, 2, set.ThrustUnits.fromSi(acft.MaximumSeaLevelStaticThrust));
-            csv.setCell(row, 3, set.TemperatureUnits.fromSi(acft.EngineBreakpointTemperature));
             if (acft.validDoc29Performance())
-                csv.setCell(row, 4, acft.Doc29Perf->Name);
+                csv.setCell(row, 2, acft.Doc29Acft->Name);
             if (acft.validSFI())
-                csv.setCell(row, 5, acft.SFIFuel->Name);
+                csv.setCell(row, 3, acft.SFIFuel->Name);
             if (acft.validLTOEngine())
-                csv.setCell(row, 6, acft.LTOEng->Name);
+                csv.setCell(row, 4, acft.LTOEng->Name);
             if (acft.validDoc29Noise())
-                csv.setCell(row, 7, acft.Doc29Ns->Name);
-            csv.setCell(row, 8, acft.Doc29NoiseDeltaArrivals);
-            csv.setCell(row, 9, acft.Doc29NoiseDeltaDepartures);
+                csv.setCell(row, 5, acft.Doc29Ns->Name);
+            csv.setCell(row, 6, acft.Doc29NoiseDeltaArrivals);
+            csv.setCell(row, 7, acft.Doc29NoiseDeltaDepartures);
             ++row;
         }
 
@@ -1139,7 +1182,7 @@ namespace GRAPE::IO::CSV {
             "Time",
             "Count",
             "Fleet ID",
-            std::format("Weight ()", set.WeightUnits.shortName()),
+            std::format("Weight ({})", set.WeightUnits.shortName()),
             "Doc29 Profile ID",
             "Thrust % Takeoff",
             "Thrust % Climb"
@@ -1150,15 +1193,18 @@ namespace GRAPE::IO::CSV {
         for (const auto& arrFl : study.Operations.flightArrivals() | std::views::values)
         {
             csv.setCell(row, 0, arrFl.Name);
-            csv.setCell(row, 1, arrFl.route().parentAirport().Name);
-            csv.setCell(row, 2, arrFl.route().parentRunway().Name);
-            csv.setCell(row, 3, OperationTypes.toString(arrFl.operationType()));
-            csv.setCell(row, 4, arrFl.route().Name);
+            csv.setCell(row, 1, OperationTypes.toString(arrFl.operationType()));
+            if (arrFl.hasRoute())
+            {
+                csv.setCell(row, 2, arrFl.route().parentAirport().Name);
+                csv.setCell(row, 3, arrFl.route().parentRunway().Name);
+                csv.setCell(row, 4, arrFl.route().Name);
+            }
             csv.setCell(row, 5, timeToUtcString(arrFl.Time));
             csv.setCell(row, 6, arrFl.Count);
             csv.setCell(row, 7, arrFl.aircraft().Name);
             csv.setCell(row, 8, set.WeightUnits.fromSi(arrFl.Weight));
-            if (arrFl.doc29ProfileSelected())
+            if (arrFl.hasDoc29Profile())
                 csv.setCell(row, 9, arrFl.doc29Profile()->Name);
             ++row;
         }
@@ -1166,15 +1212,18 @@ namespace GRAPE::IO::CSV {
         for (const auto& depFl : study.Operations.flightDepartures() | std::views::values)
         {
             csv.setCell(row, 0, depFl.Name);
-            csv.setCell(row, 1, depFl.route().parentAirport().Name);
-            csv.setCell(row, 2, depFl.route().parentRunway().Name);
-            csv.setCell(row, 3, OperationTypes.toString(depFl.operationType()));
-            csv.setCell(row, 4, depFl.route().Name);
+            csv.setCell(row, 1, OperationTypes.toString(depFl.operationType()));
+            if (depFl.hasRoute())
+            {
+                csv.setCell(row, 2, depFl.route().parentAirport().Name);
+                csv.setCell(row, 3, depFl.route().parentRunway().Name);
+                csv.setCell(row, 4, depFl.route().Name);
+            }
             csv.setCell(row, 5, timeToUtcString(depFl.Time));
             csv.setCell(row, 6, depFl.Count);
             csv.setCell(row, 7, depFl.aircraft().Name);
             csv.setCell(row, 8, set.WeightUnits.fromSi(depFl.Weight));
-            if (depFl.doc29ProfileSelected())
+            if (depFl.hasDoc29Profile())
                 csv.setCell(row, 9, depFl.doc29Profile()->Name);
             csv.setCell(row, 10, depFl.ThrustPercentageTakeoff);
             csv.setCell(row, 11, depFl.ThrustPercentageClimb);
@@ -1466,11 +1515,13 @@ namespace GRAPE::IO::CSV {
             std::format("Segmentation Speed Delta Threshold ({})", set.SpeedUnits.shortName()),
             "Flights Performance Model",
             "Flights Doc29 Segmentation",
+            "Tracks 4D Calculate Performance",
             "Tracks 4D Minimum Points",
             "Tracks 4D Recalculate Cumulative Ground Distance",
             "Tracks 4D Recalculate Groundspeed",
             "Tracks 4D Recalculate Fuel Flow",
             "Fuel Flow Model"
+            "Fuel Flow Model LTO Altitude Correction"
         );
 
         std::size_t row = 0;
@@ -1504,22 +1555,22 @@ namespace GRAPE::IO::CSV {
                     csv.setCell(row, 8, set.DistanceUnits.fromSi(spec.FilterMaximumCumulativeGroundDistance));
                 if (!std::isnan(spec.FilterGroundDistanceThreshold))
                     csv.setCell(row, 9, set.DistanceUnits.fromSi(spec.FilterGroundDistanceThreshold));
-
-                csv.setCell(row, 10, set.SpeedUnits.fromSi(spec.SpeedDeltaSegmentationThreshold));
+                if (!std::isnan(spec.SpeedDeltaSegmentationThreshold))
+                    csv.setCell(row, 10, set.SpeedUnits.fromSi(spec.SpeedDeltaSegmentationThreshold));
 
                 csv.setCell(row, 11, PerformanceModelTypes.toString(spec.FlightsPerformanceMdl));
                 csv.setCell(row, 12, static_cast<int>(spec.FlightsDoc29Segmentation));
 
-                csv.setCell(row, 13, spec.Tracks4dMinimumPoints);
-                csv.setCell(row, 14, static_cast<int>(spec.Tracks4dRecalculateCumulativeGroundDistance));
-                csv.setCell(row, 15, static_cast<int>(spec.Tracks4dRecalculateGroundspeed));
-                csv.setCell(row, 16, static_cast<int>(spec.Tracks4dRecalculateFuelFlow));
+                csv.setCell(row, 13, static_cast<int>(spec.Tracks4dCalculatePerformance));
+                csv.setCell(row, 14, spec.Tracks4dMinimumPoints);
+                csv.setCell(row, 15, static_cast<int>(spec.Tracks4dRecalculateCumulativeGroundDistance));
+                csv.setCell(row, 16, static_cast<int>(spec.Tracks4dRecalculateGroundspeed));
+                csv.setCell(row, 17, static_cast<int>(spec.Tracks4dRecalculateFuelFlow));
 
-                csv.setCell(row, 17, FuelFlowModelTypes.toString(spec.FuelFlowMdl));
+                csv.setCell(row, 18, FuelFlowModelTypes.toString(spec.FuelFlowMdl));
+                csv.setCell(row, 19, static_cast<int>(spec.FuelFlowLTOAltitudeCorrection));
 
                 ++row;
-
-
             }
         }
 
@@ -1634,6 +1685,7 @@ namespace GRAPE::IO::CSV {
 
     void exportNoiseRunsReceptorsPoints(const std::string& CsvPath) {
         const auto& study = Application::study();
+        const auto& set = Application::settings();
 
         Csv csv;
         try { csv.setExport(CsvPath); }
@@ -1649,7 +1701,8 @@ namespace GRAPE::IO::CSV {
             "Noise Run ID",
             "ID",
             "Longitude",
-            "Latitude"
+            "Latitude",
+            std::format("Elevation ({})", set.AltitudeUnits.shortName())
         );
 
         std::size_t row = 0;
@@ -1671,6 +1724,7 @@ namespace GRAPE::IO::CSV {
                         csv.setCell(row, 3, name);
                         csv.setCell(row, 4, pt.Longitude);
                         csv.setCell(row, 5, pt.Latitude);
+                        csv.setCell(row, 6, set.AltitudeUnits.fromSi(pt.Elevation));
                         ++row;
                     }
                 }
@@ -1878,7 +1932,21 @@ namespace GRAPE::IO::CSV {
             "Scenario ID",
             "Performance Run ID",
             "ID",
+            "Calculate Gas Emissions",
+            "Calculate Particle Emissions",
             "Emissions Model",
+            "Use BFFM 2 for gas pollutant EIs"
+            "Smoke Number to nvPM EI Model",
+            "LTO Cycle Time Idle",
+            "LTO Cycle Time Approach",
+            "LTO Cycle Time Climb Out",
+            "LTO Cycle Time Takeoff",
+            "Particle Effective Density (kg/m3)",
+            "Particle Geometric Standard Deviation",
+            "Particle Geometric Mean Diameter Idle (nm)",
+            "Particle Geometric Mean Diameter Approach (nm)",
+            "Particle Geometric Mean Diameter Climb Out (nm)",
+            "Particle Geometric Mean Diameter Takeoff (nm)",
             std::format("Minimum Altitude ({})", set.AltitudeUnits.shortName()),
             std::format("Maximum Altitude ({})", set.AltitudeUnits.shortName()),
             std::format("Minimum Cumulative Ground Distance ({})", set.DistanceUnits.shortName()),
@@ -1893,16 +1961,31 @@ namespace GRAPE::IO::CSV {
             {
                 for (const auto& emiRun : perfRun.EmissionsRuns | std::views::values)
                 {
+                    std::size_t col = 0;
                     const auto& spec = emiRun.EmissionsRunSpec;
-                    csv.setCell(row, 0, scen.Name);
-                    csv.setCell(row, 1, perfRun.Name);
-                    csv.setCell(row, 2, emiRun.Name);
-                    csv.setCell(row, 3, EmissionsModelTypes.toString(spec.EmissionsMdl));
-                    csv.setCell(row, 4, set.AltitudeUnits.fromSi(emiRun.EmissionsRunSpec.FilterMinimumAltitude));
-                    csv.setCell(row, 5, set.AltitudeUnits.fromSi(emiRun.EmissionsRunSpec.FilterMaximumAltitude));
-                    csv.setCell(row, 6, set.DistanceUnits.fromSi(emiRun.EmissionsRunSpec.FilterMinimumCumulativeGroundDistance));
-                    csv.setCell(row, 7, set.DistanceUnits.fromSi(emiRun.EmissionsRunSpec.FilterMaximumCumulativeGroundDistance));
-                    csv.setCell(row, 8, static_cast<int>(spec.SaveSegmentResults));
+                    csv.setCell(row, col++, scen.Name);
+                    csv.setCell(row, col++, perfRun.Name);
+                    csv.setCell(row, col++, emiRun.Name);
+                    csv.setCell(row, col++, static_cast<int>(spec.CalculateGasEmissions));
+                    csv.setCell(row, col++, static_cast<int>(spec.CalculateParticleEmissions));
+                    csv.setCell(row, col++, EmissionsModelTypes.toString(spec.EmissionsMdl));
+                    csv.setCell(row, col++, static_cast<int>(spec.BFFM2Model));
+                    csv.setCell(row, col++, EmissionsParticleSmokeNumberModelTypes.toString(spec.ParticleSmokeNumberModel));
+                    csv.setCell(row, col++, spec.LTOCycle.at(0));
+                    csv.setCell(row, col++, spec.LTOCycle.at(1));
+                    csv.setCell(row, col++, spec.LTOCycle.at(2));
+                    csv.setCell(row, col++, spec.LTOCycle.at(3));
+                    csv.setCell(row, col++, spec.ParticleEffectiveDensity);
+                    csv.setCell(row, col++, spec.ParticleGeometricStandardDeviation);
+                    csv.setCell(row, col++, spec.ParticleGeometricMeanDiameter.at(0) * 1e9);
+                    csv.setCell(row, col++, spec.ParticleGeometricMeanDiameter.at(1) * 1e9);
+                    csv.setCell(row, col++, spec.ParticleGeometricMeanDiameter.at(2) * 1e9);
+                    csv.setCell(row, col++, spec.ParticleGeometricMeanDiameter.at(3) * 1e9);
+                    csv.setCell(row, col++, set.AltitudeUnits.fromSi(spec.FilterMinimumAltitude));
+                    csv.setCell(row, col++, set.AltitudeUnits.fromSi(spec.FilterMaximumAltitude));
+                    csv.setCell(row, col++, set.DistanceUnits.fromSi(spec.FilterMinimumCumulativeGroundDistance));
+                    csv.setCell(row, col++, set.DistanceUnits.fromSi(spec.FilterMaximumCumulativeGroundDistance));
+                    csv.setCell(row, col++, static_cast<int>(spec.SaveSegmentResults));
                     ++row;
                 }
             }
@@ -2225,15 +2308,19 @@ namespace GRAPE::IO::CSV {
             std::format("Fuel ({})", set.EmissionsWeightUnits.shortName()),
             std::format("HC ({})", set.EmissionsWeightUnits.shortName()),
             std::format("CO ({})", set.EmissionsWeightUnits.shortName()),
-            std::format("NOx ({})", set.EmissionsWeightUnits.shortName())
+            std::format("NOx ({})", set.EmissionsWeightUnits.shortName()),
+            "nvPM (mg/kg)",
+            "nvPM Number"
         );
 
         std::size_t row = 0;
-        csv.setCell(row, 0, "Total");
+        csv.setCell(row, 0, std::string("Total")); // rapidcsv does not implement const char*
         csv.setCell(row, 1, set.EmissionsWeightUnits.fromSi(EmiOpOut.totalFuel()));
         csv.setCell(row, 2, set.EmissionsWeightUnits.fromSi(EmiOpOut.totalEmissions().HC));
         csv.setCell(row, 3, set.EmissionsWeightUnits.fromSi(EmiOpOut.totalEmissions().CO));
         csv.setCell(row, 4, set.EmissionsWeightUnits.fromSi(EmiOpOut.totalEmissions().NOx));
+        csv.setCell(row, 5, toMilligramsPerKilogram(EmiOpOut.totalEmissions().nvPM));
+        csv.setCell(row, 6, EmiOpOut.totalEmissions().nvPMNumber);
 
         ++row;
         for (const auto& segOut : EmiOpOut.segmentOutput())
@@ -2243,6 +2330,8 @@ namespace GRAPE::IO::CSV {
             csv.setCell(row, 2, set.EmissionsWeightUnits.fromSi(segOut.Emissions.HC));
             csv.setCell(row, 3, set.EmissionsWeightUnits.fromSi(segOut.Emissions.CO));
             csv.setCell(row, 4, set.EmissionsWeightUnits.fromSi(segOut.Emissions.NOx));
+            csv.setCell(row, 5, toMilligramsPerKilogram(segOut.Emissions.nvPM));
+            csv.setCell(row, 6, segOut.Emissions.nvPMNumber);
             ++row;
         }
         csv.write();
@@ -2266,15 +2355,19 @@ namespace GRAPE::IO::CSV {
             std::format("Fuel ({})", set.EmissionsWeightUnits.shortName()),
             std::format("HC ({})", set.EmissionsWeightUnits.shortName()),
             std::format("CO ({})", set.EmissionsWeightUnits.shortName()),
-            std::format("NOx ({})", set.EmissionsWeightUnits.shortName())
+            std::format("NOx ({})", set.EmissionsWeightUnits.shortName()),
+            "nvPM (mg/kg)",
+            "nvPM Number"
         );
 
         std::size_t row = 0;
-        csv.setCell(row, 0, "Total");
+        csv.setCell(row, 0, std::string("Total")); // rapidcsv does not implement const char*
         csv.setCell(row, 3, set.EmissionsWeightUnits.fromSi(EmiRunOutput.totalFuel()));
         csv.setCell(row, 4, set.EmissionsWeightUnits.fromSi(EmiRunOutput.totalEmissions().HC));
         csv.setCell(row, 5, set.EmissionsWeightUnits.fromSi(EmiRunOutput.totalEmissions().CO));
         csv.setCell(row, 6, set.EmissionsWeightUnits.fromSi(EmiRunOutput.totalEmissions().NOx));
+        csv.setCell(row, 7, toMilligramsPerKilogram(EmiRunOutput.totalEmissions().nvPM));
+        csv.setCell(row, 8, EmiRunOutput.totalEmissions().nvPMNumber);
 
         ++row;
         for (const auto& [op, opFlEmiOut] : EmiRunOutput)
@@ -2286,6 +2379,8 @@ namespace GRAPE::IO::CSV {
             csv.setCell(row, 4, set.EmissionsWeightUnits.fromSi(opFlEmiOut.totalEmissions().HC));
             csv.setCell(row, 5, set.EmissionsWeightUnits.fromSi(opFlEmiOut.totalEmissions().CO));
             csv.setCell(row, 6, set.EmissionsWeightUnits.fromSi(opFlEmiOut.totalEmissions().NOx));
+            csv.setCell(row, 7, toMilligramsPerKilogram(opFlEmiOut.totalEmissions().nvPM));
+            csv.setCell(row, 8, opFlEmiOut.totalEmissions().nvPMNumber);
             ++row;
         }
         csv.write();

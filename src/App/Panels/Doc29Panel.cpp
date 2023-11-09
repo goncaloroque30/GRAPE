@@ -13,12 +13,12 @@ namespace GRAPE {
     // Visitors not part of panel interface
     namespace {
         struct Doc29ThrustDrawer : Doc29ThrustVisitor {
-            explicit Doc29ThrustDrawer(const Doc29Performance& Doc29Acft) : m_Doc29Acft(Doc29Acft) { Doc29Acft.thrust().accept(*this); }
+            explicit Doc29ThrustDrawer(const Doc29Aircraft& Doc29Acft) : m_Doc29Acft(Doc29Acft) { Doc29Acft.thrust().accept(*this); }
             void visitDoc29ThrustRating(Doc29ThrustRating& Thrust) override;
             void visitDoc29ThrustPropeller(Doc29ThrustRatingPropeller& Thrust) override;
 
         private:
-            const Doc29Performance& m_Doc29Acft;
+            const Doc29Aircraft& m_Doc29Acft;
         };
 
         struct Doc29ProfileDrawer : Doc29ProfileVisitor {
@@ -30,7 +30,7 @@ namespace GRAPE {
         };
     }
 
-    void Doc29Panel::select(Doc29Performance& Doc29Acft) {
+    void Doc29Panel::select(Doc29Aircraft& Doc29Acft) {
         if (isSelected(Doc29Acft))
             return;
 
@@ -77,7 +77,7 @@ namespace GRAPE {
         m_SelectedDoc29Noises.emplace_back(&Doc29Ns);
     }
 
-    void Doc29Panel::deselect(Doc29Performance& Doc29Acft) {
+    void Doc29Panel::deselect(Doc29Aircraft& Doc29Acft) {
         if (!m_SelectedDoc29Aircraft.empty() && m_SelectedDoc29Aircraft.front() == &Doc29Acft)
         {
             m_SelectedDoc29ProfileArrivals.clear();
@@ -114,7 +114,7 @@ namespace GRAPE {
         clearNoiseSelection();
     }
 
-    bool Doc29Panel::isSelected(Doc29Performance& Doc29Acft) const { return std::ranges::find(m_SelectedDoc29Aircraft, &Doc29Acft) != m_SelectedDoc29Aircraft.end(); }
+    bool Doc29Panel::isSelected(Doc29Aircraft& Doc29Acft) const { return std::ranges::find(m_SelectedDoc29Aircraft, &Doc29Acft) != m_SelectedDoc29Aircraft.end(); }
 
     bool Doc29Panel::isSelected(Doc29ProfileArrival& Doc29Prof) const { return std::ranges::find(m_SelectedDoc29ProfileArrivals, &Doc29Prof) != m_SelectedDoc29ProfileArrivals.end(); }
 
@@ -152,27 +152,9 @@ namespace GRAPE {
         UI::buttonEditRight();
         if (ImGui::BeginPopupContextItem(nullptr, ImGuiPopupFlags_MouseButtonLeft))
         {
-            if (UI::selectableNew("Jet"))
+            if (UI::selectableNew())
             {
-                auto [doc29Acft, added] = study.Doc29Performances.addPerformance(Doc29Performance::Type::Jet);
-                if (added)
-                {
-                    select(doc29Acft);
-                    ImGui::CloseCurrentPopup();
-                }
-            }
-            if (UI::selectableNew("Turboprop"))
-            {
-                auto [doc29Acft, added] = study.Doc29Performances.addPerformance(Doc29Performance::Type::Turboprop);
-                if (added)
-                {
-                    select(doc29Acft);
-                    ImGui::CloseCurrentPopup();
-                }
-            }
-            if (UI::selectableNew("Piston"))
-            {
-                auto [doc29Acft, added] = study.Doc29Performances.addPerformance(Doc29Performance::Type::Piston);
+                auto [doc29Acft, added] = study.Doc29Aircrafts.addPerformance();
                 if (added)
                 {
                     select(doc29Acft);
@@ -185,22 +167,21 @@ namespace GRAPE {
             if (UI::selectableDelete("All"))
             {
                 clearAircraftSelection();
-                Application::get().queueAsyncTask([&] { study.Doc29Performances.erasePerformances(); }, "Deleting all Doc29 Performance entries");
+                Application::get().queueAsyncTask([&] { study.Doc29Aircrafts.erasePerformances(); }, "Deleting all Doc29 Performance entries");
             }
             ImGui::EndPopup();
         }
 
-        if (UI::beginTable("Doc29 Performance", 2, ImGuiTableFlags_None, ImVec2(0.0f, UI::getTableHeight(study.Doc29Performances().size(), true, ImGui::GetContentRegionAvail().y / 2.0f))))
+        if (UI::beginTable("Doc29 Performance", 1, ImGuiTableFlags_None, ImVec2(0.0f, UI::getTableHeight(study.Doc29Aircrafts().size(), true, ImGui::GetContentRegionAvail().y / 2.0f))))
         {
             ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_NoHide);
-            ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed, 100.0f);
             ImGui::TableSetupScrollFreeze(0, 1);
             ImGui::TableHeadersRow();
 
-            for (const auto& [AcftId, Acft] : study.Doc29Performances())
+            for (auto& [doc29AcftId, doc29Acft] : study.Doc29Aircrafts())
             {
-                if (filterAcft.passesFilter(AcftId))
-                    drawDoc29AircraftNode(AcftId, *Acft);
+                if (filterAcft.passesFilter(doc29AcftId))
+                    drawDoc29AircraftNode(doc29AcftId, doc29Acft);
             }
 
             UI::endTable();
@@ -292,7 +273,7 @@ namespace GRAPE {
         ImGui::End();
     }
 
-    void Doc29Panel::drawDoc29AircraftNode(const std::string& Doc29AcftId, Doc29Performance& Doc29Acft) {
+    void Doc29Panel::drawDoc29AircraftNode(const std::string& Doc29AcftId, Doc29Aircraft& Doc29Acft) {
         auto& study = Application::study();
 
         ImGui::TableNextRow();
@@ -310,7 +291,7 @@ namespace GRAPE {
             if (UI::selectableDelete())
             {
                 deselect(Doc29Acft);
-                m_Action = [&] { study.Doc29Performances.erasePerformance(Doc29Acft); };
+                m_Action = [&] { study.Doc29Aircrafts.erasePerformance(Doc29Acft); };
                 ImGui::CloseCurrentPopup();
             }
             ImGui::EndDisabled();
@@ -318,21 +299,18 @@ namespace GRAPE {
             ImGui::EndPopup();
         }
 
-        // Name
         ImGui::BeginDisabled(study.Blocks.notEditable(Doc29Acft));
+
+        // Name
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-        if (UI::inputText("Name", Doc29Acft.Name, Doc29Acft.Name != Doc29AcftId && study.Doc29Performances().contains(Doc29Acft.Name), "Aircraft name", std::format("Aircraft '{}' already exists in this study.", Doc29Acft.Name)))
+        if (UI::inputText("Name", Doc29Acft.Name, Doc29Acft.Name != Doc29AcftId && study.Doc29Aircrafts().contains(Doc29Acft.Name), "Aircraft name", std::format("Aircraft '{}' already exists in this study.", Doc29Acft.Name)))
             if (Doc29Acft.Name != Doc29AcftId)
-                m_Action = [&] { study.Doc29Performances.updateKeyPerformance(Doc29Acft, Doc29AcftId); };
-        ImGui::EndDisabled(); // Not editable
+                m_Action = [&] { study.Doc29Aircrafts.updateKeyPerformance(Doc29Acft, Doc29AcftId); };
         if (UI::isItemClicked())
             select(Doc29Acft);
 
-        // Type
-        UI::tableNextColumn(false);
-        UI::textInfo(Doc29Performance::Types.toString(Doc29Acft.type()));
-
-        ImGui::PopID();
+        ImGui::EndDisabled(); // Not editable
+        ImGui::PopID(); // Doc29 Aircraft
     }
 
     void Doc29Panel::drawDoc29NoiseNode(const std::string& Doc29NsId, Doc29Noise& Doc29Ns) {
@@ -376,9 +354,20 @@ namespace GRAPE {
 
     void Doc29Panel::drawSelectedDoc29Aircraft() {
         GRAPE_ASSERT(!m_SelectedDoc29Aircraft.empty() && m_SelectedDoc29Aircraft.front());
-        Doc29Performance& doc29Acft = *m_SelectedDoc29Aircraft.front();
+        Doc29Aircraft& doc29Acft = *m_SelectedDoc29Aircraft.front();
 
         auto& study = Application::study();
+        const auto& set = Application::settings();
+
+        // Maximum Sea Level Static Thrust
+        ImGui::BeginDisabled(study.Blocks.notEditable(doc29Acft));
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextDisabled("Maximum sea level static thrust:");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
+        if (UI::inputDouble("Maximum sea level static thrust", doc29Acft.MaximumSeaLevelStaticThrust, 1.0, Constants::NaN, set.ThrustUnits))
+            study.Doc29Aircrafts.updatePerformance(doc29Acft);
+        ImGui::EndDisabled();
 
         // Thrust
         if (ImGui::CollapsingHeader("Thrust"))
@@ -409,15 +398,15 @@ namespace GRAPE {
             if (ImGui::BeginPopupContextItem(nullptr, ImGuiPopupFlags_MouseButtonLeft))
             {
                 if (UI::selectableNew("Points"))
-                    study.Doc29Performances.addProfileArrival(doc29Acft, Doc29Profile::Type::Points);
+                    study.Doc29Aircrafts.addProfileArrival(doc29Acft, Doc29Profile::Type::Points);
 
                 if (UI::selectableNew("Procedural"))
-                    study.Doc29Performances.addProfileArrival(doc29Acft, Doc29Profile::Type::Procedural);
+                    study.Doc29Aircrafts.addProfileArrival(doc29Acft, Doc29Profile::Type::Procedural);
 
                 if (UI::selectableDelete("All Arrival Profiles"))
                 {
                     m_SelectedDoc29ProfileArrivals.clear();
-                    study.Doc29Performances.eraseProfileArrivals(doc29Acft);
+                    study.Doc29Aircrafts.eraseProfileArrivals(doc29Acft);
                 }
 
                 ImGui::EndPopup();
@@ -449,7 +438,7 @@ namespace GRAPE {
                         if (UI::selectableDelete())
                         {
                             deselect(doc29Prof);
-                            m_Action = [&] { study.Doc29Performances.eraseProfile(doc29Prof); };
+                            m_Action = [&] { study.Doc29Aircrafts.eraseProfile(doc29Prof); };
                             ImGui::CloseCurrentPopup();
                         }
                         ImGui::EndDisabled();
@@ -460,7 +449,7 @@ namespace GRAPE {
                     ImGui::SetNextItemWidth(ImGui::GetColumnWidth());
                     if (UI::inputText("Name", doc29Prof.Name, doc29Prof.Name != doc29ProfId && doc29Prof.parentDoc29Performance().ArrivalProfiles.contains(doc29Prof.Name), "Profile name", std::format("Arrival profile '{}' already exists in aircraft '{}'.", doc29Prof.Name, doc29Prof.parentDoc29Performance().Name)))
                         if (doc29Prof.Name != doc29ProfId)
-                            m_Action = [&] { study.Doc29Performances.updateKeyProfile(doc29Prof, doc29ProfId); };
+                            m_Action = [&] { study.Doc29Aircrafts.updateKeyProfile(doc29Prof, doc29ProfId); };
                     if (UI::isItemClicked())
                         select(doc29Prof);
 
@@ -500,15 +489,15 @@ namespace GRAPE {
             if (ImGui::BeginPopupContextItem(nullptr, ImGuiPopupFlags_MouseButtonLeft))
             {
                 if (UI::selectableNew("Points"))
-                    study.Doc29Performances.addProfileDeparture(doc29Acft, Doc29Profile::Type::Points);
+                    study.Doc29Aircrafts.addProfileDeparture(doc29Acft, Doc29Profile::Type::Points);
 
                 if (UI::selectableNew("Procedural"))
-                    study.Doc29Performances.addProfileDeparture(doc29Acft, Doc29Profile::Type::Procedural);
+                    study.Doc29Aircrafts.addProfileDeparture(doc29Acft, Doc29Profile::Type::Procedural);
 
                 if (UI::selectableDelete("All Departure Profiles"))
                 {
                     m_SelectedDoc29ProfileDepartures.clear();
-                    study.Doc29Performances.eraseProfileDepartures(doc29Acft);
+                    study.Doc29Aircrafts.eraseProfileDepartures(doc29Acft);
                 }
 
                 ImGui::EndPopup();
@@ -540,7 +529,7 @@ namespace GRAPE {
                         if (UI::selectableDelete())
                         {
                             deselect(doc29Prof);
-                            m_Action = [&] { study.Doc29Performances.eraseProfile(doc29Prof); };
+                            m_Action = [&] { study.Doc29Aircrafts.eraseProfile(doc29Prof); };
                             ImGui::CloseCurrentPopup();
                         }
                         ImGui::EndDisabled();
@@ -551,7 +540,7 @@ namespace GRAPE {
                     ImGui::SetNextItemWidth(ImGui::GetColumnWidth());
                     if (UI::inputText("Name", doc29Prof.Name, doc29Prof.Name != doc29ProfId && doc29Prof.parentDoc29Performance().DepartureProfiles.contains(doc29Prof.Name), "Profile name", std::format("Departure profile '{}' already exists in aircraft '{}'.", doc29Prof.Name, doc29Prof.parentDoc29Performance().Name)))
                         if (doc29Prof.Name != doc29ProfId)
-                            m_Action = [&] { study.Doc29Performances.updateKeyProfile(doc29Prof, doc29ProfId); };
+                            m_Action = [&] { study.Doc29Aircrafts.updateKeyProfile(doc29Prof, doc29ProfId); };
                     if (UI::isItemClicked())
                         select(doc29Prof);
 
@@ -581,9 +570,10 @@ namespace GRAPE {
 
     void Doc29Panel::drawSelectedDoc29AircraftThrust() const {
         GRAPE_ASSERT(!m_SelectedDoc29Aircraft.empty() && m_SelectedDoc29Aircraft.front());
-        Doc29Performance& doc29Acft = *m_SelectedDoc29Aircraft.front();
+        Doc29Aircraft& doc29Acft = *m_SelectedDoc29Aircraft.front();
 
         const auto& study = Application::study();
+        const auto& set = Application::settings();
         const auto& style = ImGui::GetStyle();
 
         const float thrustOffset = ImGui::GetCursorPosX() + ImGui::CalcTextSize("Engine Breakpoint Temperature:").x;
@@ -592,28 +582,36 @@ namespace GRAPE {
         ImGui::BeginDisabled(doc29Acft.containsDepartureProceduralProfiles() || doc29Acft.containsArrivalProceduralProfiles());
         ImGui::AlignTextToFramePadding();
         ImGui::TextDisabled("Thrust Type:");
-        ImGui::SameLine(thrustOffset, style.ItemInnerSpacing.x);
+        ImGui::SameLine(thrustOffset, style.ItemSpacing.x);
         ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
-        const auto thrustTypeStr = Doc29Thrust::Types.toString(doc29Acft.thrust().type());
-        if (ImGui::BeginCombo("##ThrustType", thrustTypeStr.c_str()))
+        const auto currentTypeStr = Doc29Thrust::Types.toString(doc29Acft.thrust().type());
+        if (ImGui::BeginCombo("##ThrustType", currentTypeStr.c_str()))
         {
-            for (const auto& type : doc29Acft.allowedThrustTypes())
+            for (const auto& typeStr : Doc29Thrust::Types)
             {
+                const auto type = Doc29Thrust::Types.fromString(typeStr);
                 const bool selected = type == doc29Acft.thrust().type();
-                if (ImGui::Selectable(Doc29Thrust::Types.toString(type).c_str(), selected))
+                if (ImGui::Selectable(typeStr, selected))
                 {
                     doc29Acft.setThrustType(type);
-                    study.Doc29Performances.updateThrust(doc29Acft);
+                    study.Doc29Aircrafts.updateThrust(doc29Acft);
                 }
             }
             ImGui::EndCombo();
         }
         ImGui::EndDisabled(); // Thrust Type not editable
 
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextDisabled("Engine Breakpoint Temperature:");
+        ImGui::SameLine(thrustOffset, style.ItemSpacing.x);
+        ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
+        if (UI::inputDouble("Engine breakpoint temperature", doc29Acft.EngineBreakpointTemperature, 0.0, Constants::NaN, set.TemperatureUnits))
+            study.Doc29Aircrafts.updatePerformance(doc29Acft);
+
         Doc29ThrustDrawer engineCoeffsDrawer(doc29Acft);
     }
 
-    void Doc29ThrustDrawer::visitDoc29ThrustRating(Doc29ThrustRating& Thrust) {
+    void Doc29ThrustDrawer::visitDoc29ThrustRating(Doc29ThrustRating& Doc29Thr) {
         const Settings& set = Application::settings();
 
         bool updated = false;
@@ -627,7 +625,7 @@ namespace GRAPE {
         if (UI::buttonNew("Thrust Rating"))
             ImGui::OpenPopup(popupAddId);
 
-        if (UI::beginTable("Thrust Rating Coefficients", 6, ImGuiTableFlags_None, ImVec2(0.0f, UI::getTableHeight(Thrust.Coeffs.size()))))
+        if (UI::beginTable("Thrust Rating Coefficients", 6, ImGuiTableFlags_None, ImVec2(0.0f, UI::getTableHeight(Doc29Thr.Coeffs.size()))))
         {
             ImGui::TableSetupColumn("Thrust Rating", ImGuiTableColumnFlags_NoHide);
             ImGui::TableSetupColumn(std::format("E ({})", set.ThrustUnits.shortName()).c_str(), ImGuiTableColumnFlags_NoHide);
@@ -638,7 +636,7 @@ namespace GRAPE {
             ImGui::TableSetupScrollFreeze(0, 1);
             ImGui::TableHeadersRow();
 
-            for (auto& [thrustRating, coeffs] : Thrust)
+            for (auto& [thrustRating, coeffs] : Doc29Thr)
             {
                 ImGui::PushID(magic_enum::enum_integer(thrustRating));
                 ImGui::TableNextRow();
@@ -656,7 +654,7 @@ namespace GRAPE {
                     ImGui::BeginDisabled(block);
                     if (UI::selectableDelete())
                     {
-                        action = [&] { Thrust.Coeffs.erase(thrustRating); };
+                        action = [&] { Doc29Thr.Coeffs.erase(thrustRating); };
                         ImGui::CloseCurrentPopup();
                     }
                     ImGui::EndDisabled();
@@ -697,12 +695,12 @@ namespace GRAPE {
             for (const auto& ratingStr : Doc29Thrust::Ratings)
             {
                 auto rating = Doc29Thrust::Ratings.fromString(ratingStr);
-                if (Thrust.Coeffs.contains(rating))
+                if (Doc29Thr.Coeffs.contains(rating))
                     continue;
 
                 if (ImGui::Selectable(ratingStr, false))
                 {
-                    auto [EngineCoeffs, added] = Thrust.Coeffs.add(rating);
+                    auto [EngineCoeffs, added] = Doc29Thr.Coeffs.add(rating);
                     if (added)
                     {
                         ImGui::CloseCurrentPopup();
@@ -720,10 +718,10 @@ namespace GRAPE {
         }
 
         if (updated)
-            Application::study().Doc29Performances.updateThrust(m_Doc29Acft);
+            Application::study().Doc29Aircrafts.updateThrust(m_Doc29Acft);
     }
 
-    void Doc29ThrustDrawer::visitDoc29ThrustPropeller(Doc29ThrustRatingPropeller& Thrust) {
+    void Doc29ThrustDrawer::visitDoc29ThrustPropeller(Doc29ThrustRatingPropeller& Doc29Thr) {
         const Settings& set = Application::settings();
 
         bool updated = false;
@@ -737,7 +735,7 @@ namespace GRAPE {
         if (UI::buttonNew("Thrust Rating"))
             ImGui::OpenPopup(popupAddId);
 
-        if (UI::beginTable("Propeller Engine Coefficients", 3, ImGuiTableFlags_None, ImVec2(0.0f, UI::getTableHeight(Thrust.Coeffs.size()))))
+        if (UI::beginTable("Propeller Engine Coefficients", 3, ImGuiTableFlags_None, ImVec2(0.0f, UI::getTableHeight(Doc29Thr.Coeffs.size()))))
         {
             ImGui::TableSetupColumn("Thrust Rating", ImGuiTableColumnFlags_NoHide);
             ImGui::TableSetupColumn("Propeller Efficiency (%)", ImGuiTableColumnFlags_NoHide);
@@ -745,7 +743,7 @@ namespace GRAPE {
             ImGui::TableSetupScrollFreeze(0, 1);
             ImGui::TableHeadersRow();
 
-            for (auto& [thrustRating, engineCoeffs] : Thrust)
+            for (auto& [thrustRating, engineCoeffs] : Doc29Thr)
             {
                 ImGui::PushID(magic_enum::enum_integer(thrustRating));
                 ImGui::TableNextRow();
@@ -763,7 +761,7 @@ namespace GRAPE {
                     ImGui::BeginDisabled(block);
                     if (UI::selectableDelete())
                     {
-                        action = [&] { Thrust.Coeffs.erase(thrustRating); };
+                        action = [&] { Doc29Thr.Coeffs.erase(thrustRating); };
                         ImGui::CloseCurrentPopup();
                     }
                     ImGui::EndDisabled();
@@ -792,12 +790,12 @@ namespace GRAPE {
             for (const auto& ratingStr : Doc29Thrust::Ratings)
             {
                 auto rating = Doc29Thrust::Ratings.fromString(ratingStr);
-                if (Thrust.Coeffs.contains(rating))
+                if (Doc29Thr.Coeffs.contains(rating))
                     continue;
 
                 if (ImGui::Selectable(ratingStr, false))
                 {
-                    auto [EngineCoeffs, added] = Thrust.Coeffs.add(rating);
+                    auto [EngineCoeffs, added] = Doc29Thr.Coeffs.add(rating);
                     if (added)
                     {
                         ImGui::CloseCurrentPopup();
@@ -815,12 +813,12 @@ namespace GRAPE {
         }
 
         if (updated)
-            Application::study().Doc29Performances.updateThrust(m_Doc29Acft);
+            Application::study().Doc29Aircrafts.updateThrust(m_Doc29Acft);
     }
 
     void Doc29Panel::drawSelectedDoc29AircraftAerodynamicCoefficients() {
         GRAPE_ASSERT(!m_SelectedDoc29Aircraft.empty() && m_SelectedDoc29Aircraft.front());
-        Doc29Performance& doc29Acft = *m_SelectedDoc29Aircraft.front();
+        Doc29Aircraft& doc29Acft = *m_SelectedDoc29Aircraft.front();
 
         const auto& study = Application::study();
         const auto& set = Application::settings();
@@ -830,7 +828,7 @@ namespace GRAPE {
             const std::string newStr = uniqueKeyGenerator(doc29Acft.AerodynamicCoefficients, "New coefficients");
             auto [aeroCoeffs, added] = doc29Acft.AerodynamicCoefficients.add(newStr, newStr);
             if (added)
-                study.Doc29Performances.updateAerodynamicCoefficients(doc29Acft);
+                study.Doc29Aircrafts.updateAerodynamicCoefficients(doc29Acft);
         }
 
         if (UI::beginTable("Aerodynamic Coefficients", 6, ImGuiTableFlags_None, ImVec2(0.0f, UI::getTableHeight(doc29Acft.AerodynamicCoefficients.size()))))
@@ -861,7 +859,7 @@ namespace GRAPE {
                     {
                         m_Action = [&] {
                             if (doc29Acft.AerodynamicCoefficients.erase(CoeffsName))
-                                study.Doc29Performances.updateAerodynamicCoefficients(doc29Acft);
+                                study.Doc29Aircrafts.updateAerodynamicCoefficients(doc29Acft);
                             };
                         ImGui::CloseCurrentPopup();
                     }
@@ -875,7 +873,7 @@ namespace GRAPE {
                 ImGui::SetNextItemWidth(ImGui::GetColumnWidth());
                 UI::inputText("Name", Coeffs.Name, Coeffs.Name != CoeffsName && doc29Acft.AerodynamicCoefficients.contains(Coeffs.Name), "Aerodynamic coefficient name", std::format("Aerodynamic coefficient '{}' already exists in aircraft '{}'", Coeffs.Name, doc29Acft.Name));
                 if (ImGui::IsItemDeactivatedAfterEdit() && Coeffs.Name != CoeffsName)
-                    study.Doc29Performances.updateKeyAerodynamicCoefficients(doc29Acft, CoeffsName);
+                    study.Doc29Aircrafts.updateKeyAerodynamicCoefficients(doc29Acft, CoeffsName);
 
                 UI::tableNextColumn();
                 ImGui::BeginDisabled(coeffsBlocked);
@@ -888,7 +886,7 @@ namespace GRAPE {
                         if (ImGui::Selectable(typeStr, selected))
                         {
                             Coeffs.CoefficientType = typ;
-                            study.Doc29Performances.updateAerodynamicCoefficients(doc29Acft);
+                            study.Doc29Aircrafts.updateAerodynamicCoefficients(doc29Acft);
                         }
                     }
                     ImGui::EndCombo();
@@ -900,25 +898,25 @@ namespace GRAPE {
                 // R
                 UI::tableNextColumn();
                 if (UI::inputDouble("R", Coeffs.R, Constants::Precision, Constants::NaN))
-                    study.Doc29Performances.updateAerodynamicCoefficients(doc29Acft);
+                    study.Doc29Aircrafts.updateAerodynamicCoefficients(doc29Acft);
 
                 // B (ft/lbf)
                 UI::tableNextColumn();
                 if (Coeffs.CoefficientType == Doc29AerodynamicCoefficients::Type::Takeoff)
                     if (UI::inputDouble("B", Coeffs.B, Constants::Precision, Constants::NaN, set.Doc29AeroBUnits, false))
-                        study.Doc29Performances.updateAerodynamicCoefficients(doc29Acft);
+                        study.Doc29Aircrafts.updateAerodynamicCoefficients(doc29Acft);
 
                 // C (kts/sqrt(lbf))
                 UI::tableNextColumn();
                 if (Coeffs.CoefficientType == Doc29AerodynamicCoefficients::Type::Takeoff)
                     if (UI::inputDouble("C", Coeffs.C, Constants::Precision, Constants::NaN, set.Doc29AeroCDUnits, false))
-                        study.Doc29Performances.updateAerodynamicCoefficients(doc29Acft);
+                        study.Doc29Aircrafts.updateAerodynamicCoefficients(doc29Acft);
 
                 // D (kts/sqrt(lbf))
                 UI::tableNextColumn();
                 if (Coeffs.CoefficientType == Doc29AerodynamicCoefficients::Type::Land)
                     if (UI::inputDouble("D", Coeffs.D, Constants::Precision, Constants::NaN, set.Doc29AeroCDUnits, false))
-                        study.Doc29Performances.updateAerodynamicCoefficients(doc29Acft);
+                        study.Doc29Aircrafts.updateAerodynamicCoefficients(doc29Acft);
 
                 ImGui::PopID();
             }
@@ -1009,7 +1007,7 @@ namespace GRAPE {
         }
 
         if (updated)
-            Application::study().Doc29Performances.updateProfile(Doc29Prof);
+            Application::study().Doc29Aircrafts.updateProfile(Doc29Prof);
     }
 
     void Doc29ProfileDrawer::visitDoc29ProfileDeparturePoints(Doc29ProfileDeparturePoints& Doc29Prof) {
@@ -1100,7 +1098,7 @@ namespace GRAPE {
         }
 
         if (updated)
-            Application::study().Doc29Performances.updateProfile(Doc29Prof);
+            Application::study().Doc29Aircrafts.updateProfile(Doc29Prof);
     }
 
     void Doc29ProfileDrawer::visitDoc29ProfileArrivalProcedural(Doc29ProfileArrivalProcedural& Doc29Prof) {
@@ -1413,7 +1411,7 @@ namespace GRAPE {
         }
 
         if (updated)
-            Application::study().Doc29Performances.updateProfile(Doc29Prof);
+            Application::study().Doc29Aircrafts.updateProfile(Doc29Prof);
     }
 
     void Doc29ProfileDrawer::visitDoc29ProfileDepartureProcedural(Doc29ProfileDepartureProcedural& Doc29Prof) {
@@ -1596,7 +1594,7 @@ namespace GRAPE {
         }
 
         if (updated)
-            Application::study().Doc29Performances.updateProfile(Doc29Prof);
+            Application::study().Doc29Aircrafts.updateProfile(Doc29Prof);
     }
 
     void Doc29Panel::drawSelectedDoc29Noise() {

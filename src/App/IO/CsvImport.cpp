@@ -47,26 +47,42 @@ namespace GRAPE::IO::CSV {
 
     void importDoc29Performance(const std::string& CsvPath) {
         auto& study = Application::study();
+        const auto& set = Application::settings();
 
-        CsvImport csvImp(CsvPath, "Doc29 Performance", 2);
+        CsvImport csvImp(CsvPath, "Doc29 Aircraft", 4);
         if (!csvImp.valid())
             return;
         auto& csv = csvImp.CsvImp;
+        const auto columnNames = csv.columnNames();
 
         for (std::size_t row = 0; row < csv.rowCount(); row++)
         {
+            Doc29Aircraft* newDoc29Acft = nullptr;
             try
             {
-                const auto doc29PerfTypeStr = csv.getCell<std::string>(row, 1);
-                if (!Doc29Performance::Types.contains(doc29PerfTypeStr))
-                    throw GrapeException(std::format("Invalid Doc29 Performance type '{}'.", doc29PerfTypeStr));
-                const Doc29Performance::Type doc29PerfType = Doc29Performance::Types.fromString(doc29PerfTypeStr);
+                auto& doc29Acft = study.Doc29Aircrafts.addPerformanceE(csv.getCell<std::string>(row, 0));
+                newDoc29Acft = &doc29Acft;
 
-                study.Doc29Performances.addPerformanceE(doc29PerfType, csv.getCell<std::string>(row, 0));
+                try { doc29Acft.setMaximumSeaLevelStaticThrust(set.ThrustUnits.toSi(csv.getCell<double>(row, 1), columnNames.at(1))); }
+                catch (const GrapeException&) { throw; }
+                catch (...) { throw std::invalid_argument("Invalid maximum sea level static thrust."); }
+
+                const auto doc29ThrStr = csv.getCell<std::string>(row, 2);
+                if (doc29ThrStr.empty())
+                    throw GrapeException("Empty thrust type not allowed.");
+                if (!Doc29Thrust::Types.contains(doc29ThrStr))
+                    throw GrapeException(std::format("Invalid thrust type '{}'.", doc29ThrStr));
+                doc29Acft.setThrustType(Doc29Thrust::Types.fromString(doc29ThrStr));
+
+                try { doc29Acft.setEngineBreakpointTemperature(set.TemperatureUnits.toSi(csv.getCell<double>(row, 3), columnNames.at(3))); }
+                catch (const GrapeException&) { throw; }
+                catch (...) { throw std::invalid_argument("Invalid engine breakpoint temperature."); }
             }
             catch (const std::exception& err)
             {
-                Log::io()->error("Importing Doc29 Performance at row {}. {}", row + 2, err.what());
+                Log::io()->error("Importing Doc29 Aircraft at row {}. {}", row + 2, err.what());
+                if (newDoc29Acft)
+                    study.Doc29Aircrafts.erasePerformance(*newDoc29Acft);
                 ++csvImp.ErrorCount;
             }
         }
@@ -76,7 +92,7 @@ namespace GRAPE::IO::CSV {
         auto& study = Application::study();
         const auto& set = Application::settings();
 
-        CsvImport csvImp(CsvPath, "Doc29 Performance aerodynamic coefficients", 7);
+        CsvImport csvImp(CsvPath, "Doc29 aerodynamic coefficients", 7);
         if (!csvImp.valid())
             return;
         auto& csv = csvImp.CsvImp;
@@ -84,29 +100,29 @@ namespace GRAPE::IO::CSV {
 
         for (std::size_t row = 0; row < csv.rowCount(); row++)
         {
-            Doc29Performance* updateDoc29Perf = nullptr;
+            Doc29Aircraft* updateDoc29Acft = nullptr;
             try
             {
-                const auto doc29PerfName = csv.getCell<std::string>(row, 0);
-                if (doc29PerfName.empty())
-                    throw GrapeException("Empty Doc29 Performance name not allowed.");
-                if (!study.Doc29Performances().contains(doc29PerfName))
-                    throw GrapeException(std::format("Doc29 Performance '{}' does not exist in this study.", doc29PerfName));
-                auto& doc29Perf = *study.Doc29Performances()(doc29PerfName);
+                const auto doc29AcftName = csv.getCell<std::string>(row, 0);
+                if (doc29AcftName.empty())
+                    throw GrapeException("Empty Doc29 Aircraft name not allowed.");
+                if (!study.Doc29Aircrafts().contains(doc29AcftName))
+                    throw GrapeException(std::format("Doc29 Aircraft '{}' does not exist in this study.", doc29AcftName));
+                auto& doc29Acft = study.Doc29Aircrafts()(doc29AcftName);
 
                 const auto aeroCoeffName = csv.getCell<std::string>(row, 1);
                 if (aeroCoeffName.empty())
                     throw GrapeException("Empty aerodynamic coefficients name not allowed.");
-                if (doc29Perf.AerodynamicCoefficients.contains(aeroCoeffName))
-                    throw GrapeException(std::format("Aerodynamic coefficients '{}' already exist in Doc Performance '{}'.", aeroCoeffName, doc29PerfName));
+                if (doc29Acft.AerodynamicCoefficients.contains(aeroCoeffName))
+                    throw GrapeException(std::format("Aerodynamic coefficients '{}' already exist in Doc Performance '{}'.", aeroCoeffName, doc29AcftName));
 
                 const auto aeroCoeffTypeStr = csv.getCell<std::string>(row, 2);
                 if (!Doc29AerodynamicCoefficients::Types.contains(aeroCoeffTypeStr))
                     throw GrapeException(std::format("Invalid aerodynamic coefficient type '{}'.", aeroCoeffTypeStr));
 
-                auto [aeroCoeffs, added] = doc29Perf.AerodynamicCoefficients.add(aeroCoeffName, aeroCoeffName);
+                auto [aeroCoeffs, added] = doc29Acft.AerodynamicCoefficients.add(aeroCoeffName, aeroCoeffName);
                 GRAPE_ASSERT(added);
-                updateDoc29Perf = &doc29Perf;
+                updateDoc29Acft = &doc29Acft;
                 aeroCoeffs.CoefficientType = Doc29AerodynamicCoefficients::Types.fromString(aeroCoeffTypeStr);
 
                 try { aeroCoeffs.setRCoeffE(csv.getCell<double>(row, 3)); }
@@ -131,13 +147,13 @@ namespace GRAPE::IO::CSV {
                     catch (...) { throw std::invalid_argument("Invalid D coefficient."); }
                 }
 
-                study.Doc29Performances.updateAerodynamicCoefficients(doc29Perf);
+                study.Doc29Aircrafts.updateAerodynamicCoefficients(doc29Acft);
             }
             catch (const std::exception& err)
             {
-                Log::io()->error("Importing Doc29 Performance aerodynamic coefficients at row {}. {}", row + 2, err.what());
-                if (updateDoc29Perf)
-                    study.Doc29Performances.updateAerodynamicCoefficients(*updateDoc29Perf);
+                Log::io()->error("Importing Doc29 aerodynamic coefficients at row {}. {}", row + 2, err.what());
+                if (updateDoc29Acft)
+                    study.Doc29Aircrafts.updateAerodynamicCoefficients(*updateDoc29Acft);
                 ++csvImp.ErrorCount;
             }
         }
@@ -160,7 +176,7 @@ namespace GRAPE::IO::CSV {
         auto& study = Application::study();
         const auto& set = Application::settings();
 
-        CsvImport csvImp(CsvPath, "Doc29 Performance thrust ratings", 7);
+        CsvImport csvImp(CsvPath, "Doc29 thrust ratings", 7);
         if (!csvImp.valid())
             return;
         auto& csv = csvImp.CsvImp;
@@ -168,33 +184,29 @@ namespace GRAPE::IO::CSV {
 
         for (std::size_t row = 0; row < csv.rowCount(); row++)
         {
-            Doc29Performance* updatedDoc29Perf = nullptr;
+            Doc29Aircraft* updatedDoc29Acft = nullptr;
             try
             {
-                const auto doc29PerfName = csv.getCell<std::string>(row, 0);
-                if (doc29PerfName.empty())
-                    throw GrapeException("Empty Doc29 Performance name not allowed.");
-                if (!study.Doc29Performances().contains(doc29PerfName))
-                    throw GrapeException(std::format("Doc29 Performance '{}' does not exist in this study.", doc29PerfName));
-                auto& doc29Perf = *study.Doc29Performances()(doc29PerfName);
-                updatedDoc29Perf = &doc29Perf;
+                const auto doc29AcftName = csv.getCell<std::string>(row, 0);
+                if (doc29AcftName.empty())
+                    throw GrapeException("Empty Doc29 Aircraft name not allowed.");
+                if (!study.Doc29Aircrafts().contains(doc29AcftName))
+                    throw GrapeException(std::format("Doc29 Aircraft '{}' does not exist in this study.", doc29AcftName));
+                auto& doc29Acft = study.Doc29Aircrafts()(doc29AcftName);
+                updatedDoc29Acft = &doc29Acft;
 
-                const auto allowedTypes = doc29Perf.allowedThrustTypes();
-                if (std::ranges::find(allowedTypes, Doc29Thrust::Type::Rating) == allowedTypes.end())
-                    throw GrapeException(std::format("Thrust ratings are not allowed for Doc29 Performance of type {}.", Doc29Performance::Types.toString(doc29Perf.type())));
-
-                if (doc29Perf.thrust().type() != Doc29Thrust::Type::Rating)
+                if (doc29Acft.thrust().type() != Doc29Thrust::Type::Rating)
                 {
-                    Log::io()->warn("Importing thrust rating coefficients for Doc29 Performance '{}' with thrust type '{}'. Thrust type will be changed to thrust rating.", doc29PerfName, Doc29Thrust::Types.toString(doc29Perf.thrust().type()));
-                    doc29Perf.setThrustType(Doc29Thrust::Type::Rating);
+                    Log::io()->warn("Importing thrust rating coefficients for Doc29 Aircraft '{}' with thrust type '{}'. Thrust type will be changed to thrust rating.", doc29AcftName, Doc29Thrust::Types.toString(doc29Acft.thrust().type()));
+                    doc29Acft.setThrustType(Doc29Thrust::Type::Rating);
                 }
 
                 const auto thrustRatingStr = csv.getCell<std::string>(row, 1);
                 if (!Doc29Thrust::Ratings.contains(thrustRatingStr))
                     throw GrapeException(std::format("Invalid thrust rating '{}'.", thrustRatingStr));
                 const auto thrustRating = Doc29Thrust::Ratings.fromString(thrustRatingStr);
-                if (doc29Perf.thrust().isRatingSet(thrustRating))
-                    throw GrapeException(std::format("Thrust rating {} already exists in Doc29 Performance '{}'.", thrustRatingStr, doc29PerfName));
+                if (doc29Acft.thrust().isRatingSet(thrustRating))
+                    throw GrapeException(std::format("Thrust rating {} already exists in Doc29 Aircraft '{}'.", thrustRatingStr, doc29AcftName));
 
                 double e = Constants::NaN;
                 double f = Constants::NaN;
@@ -217,14 +229,14 @@ namespace GRAPE::IO::CSV {
                 try { h = set.Doc29ThrustHUnits.toSi(csv.getCell<double>(row, 6), columnNames.at(6)); }
                 catch (...) { throw std::invalid_argument("Invalid H coefficient."); }
 
-                ThrustRatingInserter(doc29Perf.thrust(), thrustRating, e, f, ga, gb, h);
-                study.Doc29Performances.updateThrust(doc29Perf);
+                ThrustRatingInserter(doc29Acft.thrust(), thrustRating, e, f, ga, gb, h);
+                study.Doc29Aircrafts.updateThrust(doc29Acft);
             }
             catch (const std::exception& err)
             {
-                Log::io()->error("Importing Doc29 Performance thrust ratings at row {}. {}", row + 2, err.what());
-                if (updatedDoc29Perf)
-                    study.Doc29Performances.updateThrust(*updatedDoc29Perf);
+                Log::io()->error("Importing Doc29 thrust ratings at row {}. {}", row + 2, err.what());
+                if (updatedDoc29Acft)
+                    study.Doc29Aircrafts.updateThrust(*updatedDoc29Acft);
                 ++csvImp.ErrorCount;
             }
         }
@@ -244,40 +256,36 @@ namespace GRAPE::IO::CSV {
         auto& study = Application::study();
         const auto& set = Application::settings();
 
-        CsvImport csvImp(CsvPath, "Doc29 Performance thrust propeller ratings", 4);
+        CsvImport csvImp(CsvPath, "Doc29 thrust ratings propeller", 4);
         if (!csvImp.valid())
             return;
         auto& csv = csvImp.CsvImp;
 
         for (std::size_t row = 0; row < csv.rowCount(); row++)
         {
-            Doc29Performance* updatedDoc29Perf = nullptr;
+            Doc29Aircraft* updatedDoc29Acft = nullptr;
             try
             {
-                const auto doc29PerfName = csv.getCell<std::string>(row, 0);
-                if (doc29PerfName.empty())
-                    throw GrapeException("Empty Doc29 Performance name not allowed.");
-                if (!study.Doc29Performances().contains(doc29PerfName))
-                    throw GrapeException(std::format("Doc29 Performance '{}' does not exist in this study.", doc29PerfName));
-                auto& doc29Perf = *study.Doc29Performances()(doc29PerfName);
-                updatedDoc29Perf = &doc29Perf;
+                const auto doc29AcftName = csv.getCell<std::string>(row, 0);
+                if (doc29AcftName.empty())
+                    throw GrapeException("Empty Doc29 Aircraft name not allowed.");
+                if (!study.Doc29Aircrafts().contains(doc29AcftName))
+                    throw GrapeException(std::format("Doc29 Aircraft '{}' does not exist in this study.", doc29AcftName));
+                auto& doc29Acft = study.Doc29Aircrafts()(doc29AcftName);
+                updatedDoc29Acft = &doc29Acft;
 
-                const auto allowedTypes = doc29Perf.allowedThrustTypes();
-                if (std::ranges::find(allowedTypes, Doc29Thrust::Type::RatingPropeller) == allowedTypes.end())
-                    throw GrapeException(std::format("Thrust propeller ratings are not allowed for Doc29 Performance of type {}.", Doc29Performance::Types.toString(doc29Perf.type())));
-
-                if (doc29Perf.thrust().type() != Doc29Thrust::Type::RatingPropeller)
+                if (doc29Acft.thrust().type() != Doc29Thrust::Type::RatingPropeller)
                 {
-                    Log::io()->warn("Importing thrust propeller rating coefficients for Doc29 Performance '{}' with thrust type '{}'. Thrust type will be changed to thrust propeller rating.");
-                    doc29Perf.setThrustType(Doc29Thrust::Type::RatingPropeller);
+                    Log::io()->warn("Importing thrust rating propeller coefficients for Doc29 Aircraft '{}' with thrust type '{}'. Thrust type will be changed to thrust rating propeller.");
+                    doc29Acft.setThrustType(Doc29Thrust::Type::RatingPropeller);
                 }
 
                 const auto thrustRatingStr = csv.getCell<std::string>(row, 1);
                 if (!Doc29Thrust::Ratings.contains(thrustRatingStr))
                     throw GrapeException(std::format("Invalid thrust rating '{}'.", thrustRatingStr));
                 const auto thrustRating = Doc29Thrust::Ratings.fromString(thrustRatingStr);
-                if (doc29Perf.thrust().isRatingSet(thrustRating))
-                    throw GrapeException(std::format("Thrust rating {} already exists in Doc29 Performance '{}'.", thrustRatingStr, doc29PerfName));
+                if (doc29Acft.thrust().isRatingSet(thrustRating))
+                    throw GrapeException(std::format("Thrust rating {} already exists in Doc29 Aircraft '{}'.", thrustRatingStr, doc29AcftName));
 
                 double eff = Constants::NaN;
                 double pp = Constants::NaN;
@@ -288,14 +296,14 @@ namespace GRAPE::IO::CSV {
                 try { pp = set.PowerUnits.toSi(csv.getCell<double>(row, 3), csv.columnName(3)); }
                 catch (...) { throw std::invalid_argument("Invalid propeller power."); }
 
-                ThrustRatingPropellerInserter(doc29Perf.thrust(), thrustRating, eff, pp);
-                study.Doc29Performances.updateThrust(doc29Perf);
+                ThrustRatingPropellerInserter(doc29Acft.thrust(), thrustRating, eff, pp);
+                study.Doc29Aircrafts.updateThrust(doc29Acft);
             }
             catch (const std::exception& err)
             {
-                Log::io()->error("Importing Doc29 Performance thrust propeller ratings at row {}. {}", row + 2, err.what());
-                if (updatedDoc29Perf)
-                    study.Doc29Performances.updateThrust(*updatedDoc29Perf);
+                Log::io()->error("Importing Doc29 thrust ratings propeller at row {}. {}", row + 2, err.what());
+                if (updatedDoc29Acft)
+                    study.Doc29Aircrafts.updateThrust(*updatedDoc29Acft);
                 ++csvImp.ErrorCount;
             }
         }
@@ -319,7 +327,7 @@ namespace GRAPE::IO::CSV {
         auto& study = Application::study();
         const auto& set = Application::settings();
 
-        CsvImport csvImp(CsvPath, "Doc29 Performance point profiles", 7);
+        CsvImport csvImp(CsvPath, "Doc29 point profiles", 7);
         if (!csvImp.valid())
             return;
         auto& csv = csvImp.CsvImp;
@@ -333,12 +341,12 @@ namespace GRAPE::IO::CSV {
             Doc29Profile* updateProf = nullptr;
             try
             {
-                const auto doc29PerfName = csv.getCell<std::string>(row, 0);
-                if (doc29PerfName.empty())
-                    throw GrapeException("Empty Doc29 Performance name not allowed.");
-                if (!study.Doc29Performances().contains(doc29PerfName))
-                    throw GrapeException(std::format("Doc29 Performance '{}' does not exist in this study.", doc29PerfName));
-                auto& doc29Perf = *study.Doc29Performances()(doc29PerfName);
+                const auto doc29AcftName = csv.getCell<std::string>(row, 0);
+                if (doc29AcftName.empty())
+                    throw GrapeException("Empty Doc29 Aircraft name not allowed.");
+                if (!study.Doc29Aircrafts().contains(doc29AcftName))
+                    throw GrapeException(std::format("Doc29 Aircraft '{}' does not exist in this study.", doc29AcftName));
+                auto& doc29Acft = study.Doc29Aircrafts()(doc29AcftName);
 
                 const auto opTypeStr = csv.getCell<std::string>(row, 1);
                 if (!OperationTypes.contains(opTypeStr))
@@ -368,40 +376,40 @@ namespace GRAPE::IO::CSV {
                 {
                 case OperationType::Arrival:
                     {
-                        if (doc29Perf.ArrivalProfiles.contains(profName))
+                        if (doc29Acft.ArrivalProfiles.contains(profName))
                         {
-                            if (std::ranges::find(addedArrivalProfiles, doc29Perf.ArrivalProfiles(profName).get()) == addedArrivalProfiles.end())
-                                throw GrapeException(std::format("Arrival profile '{}' already exists in Doc29 Performance '{}'.", profName, doc29PerfName));
+                            if (std::ranges::find(addedArrivalProfiles, doc29Acft.ArrivalProfiles(profName).get()) == addedArrivalProfiles.end())
+                                throw GrapeException(std::format("Arrival profile '{}' already exists in Doc29 Aircraft '{}'.", profName, doc29AcftName));
                         }
                         else
                         {
-                            auto& addedProfile = study.Doc29Performances.addProfileArrivalE(doc29Perf, Doc29Profile::Type::Points, profName);
+                            auto& addedProfile = study.Doc29Aircrafts.addProfileArrivalE(doc29Acft, Doc29Profile::Type::Points, profName);
                             addedArrivalProfiles.emplace_back(&addedProfile);
                         }
 
-                        updateProf = doc29Perf.ArrivalProfiles(profName).get();
+                        updateProf = doc29Acft.ArrivalProfiles(profName).get();
                         auto& prof = *updateProf;
                         PointProfileInserter profIns(prof, cumDist, alt, tas, thrust);
-                        study.Doc29Performances.updateProfile(prof);
+                        study.Doc29Aircrafts.updateProfile(prof);
                         break;
                     }
                 case OperationType::Departure:
                     {
-                        if (doc29Perf.DepartureProfiles.contains(profName))
+                        if (doc29Acft.DepartureProfiles.contains(profName))
                         {
-                            if (std::ranges::find(addedDepartureProfiles, doc29Perf.DepartureProfiles(profName).get()) == addedDepartureProfiles.end())
-                                throw GrapeException(std::format("Departure profile '{}' already exists in Doc29 Performance '{}'.", profName, doc29PerfName));
+                            if (std::ranges::find(addedDepartureProfiles, doc29Acft.DepartureProfiles(profName).get()) == addedDepartureProfiles.end())
+                                throw GrapeException(std::format("Departure profile '{}' already exists in Doc29 Aircraft '{}'.", profName, doc29AcftName));
                         }
                         else
                         {
-                            auto& addedProfile = study.Doc29Performances.addProfileDepartureE(doc29Perf, Doc29Profile::Type::Points, profName);
+                            auto& addedProfile = study.Doc29Aircrafts.addProfileDepartureE(doc29Acft, Doc29Profile::Type::Points, profName);
                             addedDepartureProfiles.emplace_back(&addedProfile);
                         }
 
-                        updateProf = doc29Perf.DepartureProfiles(profName).get();
+                        updateProf = doc29Acft.DepartureProfiles(profName).get();
                         auto& prof = *updateProf;
                         PointProfileInserter profIns(prof, cumDist, alt, tas, thrust);
-                        study.Doc29Performances.updateProfile(prof);
+                        study.Doc29Aircrafts.updateProfile(prof);
                         break;
                     }
                 default: GRAPE_ASSERT(false); break;
@@ -409,9 +417,9 @@ namespace GRAPE::IO::CSV {
             }
             catch (const std::exception& err)
             {
-                Log::io()->error("Importing Doc29 Performance point profiles at row {}. {}", row + 2, err.what());
+                Log::io()->error("Importing Doc29 point profiles at row {}. {}", row + 2, err.what());
                 if (updateProf)
-                    study.Doc29Performances.updateProfile(*updateProf);
+                    study.Doc29Aircrafts.updateProfile(*updateProf);
                 ++csvImp.ErrorCount;
             }
         }
@@ -458,7 +466,7 @@ namespace GRAPE::IO::CSV {
         auto& study = Application::study();
         const auto& set = Application::settings();
 
-        CsvImport csvImp(CsvPath, "Doc29 Performance arrival procedural profiles", 14);
+        CsvImport csvImp(CsvPath, "Doc29 arrival procedural profiles", 14);
         if (!csvImp.valid())
             return;
         auto& csv = csvImp.CsvImp;
@@ -471,12 +479,12 @@ namespace GRAPE::IO::CSV {
             Doc29ProfileArrival* updateProf = nullptr;
             try
             {
-                const auto doc29PerfName = csv.getCell<std::string>(row, 0);
-                if (doc29PerfName.empty())
-                    throw GrapeException("Empty Doc29 Performance name not allowed.");
-                if (!study.Doc29Performances().contains(doc29PerfName))
-                    throw GrapeException(std::format("Doc29 Performance '{}' does not exist in this study.", doc29PerfName));
-                auto& doc29Perf = *study.Doc29Performances()(doc29PerfName);
+                const auto doc29AcftName = csv.getCell<std::string>(row, 0);
+                if (doc29AcftName.empty())
+                    throw GrapeException("Empty Doc29 Aircraft name not allowed.");
+                if (!study.Doc29Aircrafts().contains(doc29AcftName))
+                    throw GrapeException(std::format("Doc29 Aircraft '{}' does not exist in this study.", doc29AcftName));
+                auto& doc29Acft = study.Doc29Aircrafts()(doc29AcftName);
 
                 const auto profName = csv.getCell<std::string>(row, 1);
 
@@ -587,27 +595,27 @@ namespace GRAPE::IO::CSV {
                 default: GRAPE_ASSERT(false); break;
                 }
 
-                if (doc29Perf.ArrivalProfiles.contains(profName))
+                if (doc29Acft.ArrivalProfiles.contains(profName))
                 {
-                    if (std::ranges::find(addedProfiles, doc29Perf.ArrivalProfiles(profName).get()) == addedProfiles.end())
-                        throw GrapeException(std::format("Arrival profile '{}' already exists in Doc29 Performance '{}'.", profName, doc29PerfName));
+                    if (std::ranges::find(addedProfiles, doc29Acft.ArrivalProfiles(profName).get()) == addedProfiles.end())
+                        throw GrapeException(std::format("Arrival profile '{}' already exists in Doc29 Aircraft '{}'.", profName, doc29AcftName));
                 }
                 else
                 {
-                    auto& addedProfile = study.Doc29Performances.addProfileArrivalE(doc29Perf, Doc29Profile::Type::Procedural, profName);
+                    auto& addedProfile = study.Doc29Aircrafts.addProfileArrivalE(doc29Acft, Doc29Profile::Type::Procedural, profName);
                     addedProfiles.emplace_back(&addedProfile);
                 }
 
-                updateProf = doc29Perf.ArrivalProfiles(profName).get();
+                updateProf = doc29Acft.ArrivalProfiles(profName).get();
                 auto& prof = *updateProf;
                 ArrivalProceduralInserter profIns(prof, params);
-                study.Doc29Performances.updateProfile(prof);
+                study.Doc29Aircrafts.updateProfile(prof);
             }
             catch (const std::exception& err)
             {
-                Log::io()->error("Importing Doc29 Performance arrival procedural profiles at row {}. {}", row + 2, err.what());
+                Log::io()->error("Importing Doc29 arrival procedural profiles at row {}. {}", row + 2, err.what());
                 if (updateProf)
-                    study.Doc29Performances.updateProfile(*updateProf);
+                    study.Doc29Aircrafts.updateProfile(*updateProf);
                 ++csvImp.ErrorCount;
             }
         }
@@ -650,7 +658,7 @@ namespace GRAPE::IO::CSV {
         auto& study = Application::study();
         const auto& set = Application::settings();
 
-        CsvImport csvImp(CsvPath, "Doc29 Performance departure procedural profiles", 10);
+        CsvImport csvImp(CsvPath, "Doc29 departure procedural profiles", 10);
         if (!csvImp.valid())
             return;
         auto& csv = csvImp.CsvImp;
@@ -663,12 +671,12 @@ namespace GRAPE::IO::CSV {
             Doc29ProfileDeparture* updateProf = nullptr;
             try
             {
-                const auto doc29PerfName = csv.getCell<std::string>(row, 0);
-                if (doc29PerfName.empty())
-                    throw GrapeException("Empty Doc29 Performance name not allowed.");
-                if (!study.Doc29Performances().contains(doc29PerfName))
-                    throw GrapeException(std::format("Doc29 Performance '{}' does not exist in this study.", doc29PerfName));
-                auto& doc29Perf = *study.Doc29Performances()(doc29PerfName);
+                const auto doc29AcftName = csv.getCell<std::string>(row, 0);
+                if (doc29AcftName.empty())
+                    throw GrapeException("Empty Doc29 Aircraft name not allowed.");
+                if (!study.Doc29Aircrafts().contains(doc29AcftName))
+                    throw GrapeException(std::format("Doc29 Aircraft '{}' does not exist in this study.", doc29AcftName));
+                auto& doc29Acft = study.Doc29Aircrafts()(doc29AcftName);
 
                 const auto profName = csv.getCell<std::string>(row, 1);
 
@@ -724,27 +732,27 @@ namespace GRAPE::IO::CSV {
                 default: GRAPE_ASSERT(false); break;
                 }
 
-                if (doc29Perf.DepartureProfiles.contains(profName))
+                if (doc29Acft.DepartureProfiles.contains(profName))
                 {
-                    if (std::ranges::find(addedProfiles, doc29Perf.DepartureProfiles(profName).get()) == addedProfiles.end())
-                        throw GrapeException(std::format("Departure profile '{}' already exists in Doc29 Performance '{}'.", profName, doc29PerfName));
+                    if (std::ranges::find(addedProfiles, doc29Acft.DepartureProfiles(profName).get()) == addedProfiles.end())
+                        throw GrapeException(std::format("Departure profile '{}' already exists in Doc29 Aircraft '{}'.", profName, doc29AcftName));
                 }
                 else
                 {
-                    auto& addedProfile = study.Doc29Performances.addProfileDepartureE(doc29Perf, Doc29Profile::Type::Procedural, profName);
+                    auto& addedProfile = study.Doc29Aircrafts.addProfileDepartureE(doc29Acft, Doc29Profile::Type::Procedural, profName);
                     addedProfiles.emplace_back(&addedProfile);
                 }
 
-                updateProf = doc29Perf.DepartureProfiles(profName).get();
+                updateProf = doc29Acft.DepartureProfiles(profName).get();
                 auto& prof = *updateProf;
                 DepartureProceduralInserter profIns(prof, params);
-                study.Doc29Performances.updateProfile(prof);
+                study.Doc29Aircrafts.updateProfile(prof);
             }
             catch (const std::exception& err)
             {
-                Log::io()->error("Importing Doc29 Performance departure procedural profiles at row {}. {}", row + 2, err.what());
+                Log::io()->error("Importing Doc29 departure procedural profiles at row {}. {}", row + 2, err.what());
                 if (updateProf)
-                    study.Doc29Performances.updateProfile(*updateProf);
+                    study.Doc29Aircrafts.updateProfile(*updateProf);
                 ++csvImp.ErrorCount;
             }
         }
@@ -930,7 +938,7 @@ namespace GRAPE::IO::CSV {
         auto& study = Application::study();
         const auto& set = Application::settings();
 
-        CsvImport csvImp(CsvPath, "LTO engines", 21);
+        CsvImport csvImp(CsvPath, "LTO engines", 40);
         if (!csvImp.valid())
             return;
         auto& csv = csvImp.CsvImp;
@@ -944,102 +952,263 @@ namespace GRAPE::IO::CSV {
                 auto& lto = study.LTOEngines.addLTOEngineE(csv.getCell<std::string>(row, 0));
                 newLtoEngine = &lto;
 
-                try { lto.setFuelFlow(LTOPhase::Idle, set.FuelFlowUnits.toSi(csv.getCell<double>(row, 1), columnNames.at(1))); }
+                try { lto.setMaximumSeaLevelStaticThrust(set.ThrustUnits.toSi(csv.getCell<double>(row, 1), columnNames.at(1))); }
+                catch (const GrapeException&) { throw; }
+                catch (...) { throw std::invalid_argument("Invalid maximum sea level static thrust."); }
+
+                try { lto.setFuelFlow(LTOPhase::Idle, set.FuelFlowUnits.toSi(csv.getCell<double>(row, 2), columnNames.at(2))); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid fuel flow for idle phase."); }
 
-                try { lto.setFuelFlow(LTOPhase::Approach, set.FuelFlowUnits.toSi(csv.getCell<double>(row, 2), columnNames.at(2))); }
+                try { lto.setFuelFlow(LTOPhase::Approach, set.FuelFlowUnits.toSi(csv.getCell<double>(row, 3), columnNames.at(3))); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid fuel flow for approach phase."); }
 
-                try { lto.setFuelFlow(LTOPhase::ClimbOut, set.FuelFlowUnits.toSi(csv.getCell<double>(row, 3), columnNames.at(3))); }
+                try { lto.setFuelFlow(LTOPhase::ClimbOut, set.FuelFlowUnits.toSi(csv.getCell<double>(row, 4), columnNames.at(4))); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid fuel flow for climb out phase."); }
 
-                try { lto.setFuelFlow(LTOPhase::Takeoff, set.FuelFlowUnits.toSi(csv.getCell<double>(row, 4), columnNames.at(4))); }
+                try { lto.setFuelFlow(LTOPhase::Takeoff, set.FuelFlowUnits.toSi(csv.getCell<double>(row, 5), columnNames.at(5))); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid fuel flow for takeoff phase."); }
 
-                const auto strCorrIdle = csv.getCell<std::string>(row, 5);
+                const auto strCorrIdle = csv.getCell<std::string>(row, 6);
                 if (!strCorrIdle.empty())
                 {
-                    try { lto.setFuelFlowCorrection(LTOPhase::Idle, csv.getCell<double>(row, 5)); }
+                    try { lto.setFuelFlowCorrection(LTOPhase::Idle, csv.getCell<double>(row, 6)); }
                     catch (const GrapeException&) { throw; }
                     catch (...) { throw std::invalid_argument("Invalid fuel flow correction factor for idle phase."); }
                 }
 
-                const auto strCorrApproach = csv.getCell<std::string>(row, 6);
+                const auto strCorrApproach = csv.getCell<std::string>(row, 7);
                 if (!strCorrApproach.empty())
                 {
-                    try { lto.setFuelFlowCorrection(LTOPhase::Approach, csv.getCell<double>(row, 6)); }
+                    try { lto.setFuelFlowCorrection(LTOPhase::Approach, csv.getCell<double>(row, 7)); }
                     catch (const GrapeException&) { throw; }
                     catch (...) { throw std::invalid_argument("Invalid fuel flow correction factor for approach phase."); }
                 }
 
-                const auto strCorrClimbOut = csv.getCell<std::string>(row, 7);
+                const auto strCorrClimbOut = csv.getCell<std::string>(row, 8);
                 if (!strCorrClimbOut.empty())
                 {
-                    try { lto.setFuelFlowCorrection(LTOPhase::ClimbOut, csv.getCell<double>(row, 7)); }
+                    try { lto.setFuelFlowCorrection(LTOPhase::ClimbOut, csv.getCell<double>(row, 8)); }
                     catch (const GrapeException&) { throw; }
                     catch (...) { throw std::invalid_argument("Invalid fuel flow correction factor for climb out phase."); }
                 }
 
-                const auto strCorrTakeoff = csv.getCell<std::string>(row, 8);
+                const auto strCorrTakeoff = csv.getCell<std::string>(row, 9);
                 if (!strCorrTakeoff.empty())
                 {
-                    try { lto.setFuelFlowCorrection(LTOPhase::Takeoff, csv.getCell<double>(row, 8)); }
+                    try { lto.setFuelFlowCorrection(LTOPhase::Takeoff, csv.getCell<double>(row, 9)); }
                     catch (const GrapeException&) { throw; }
                     catch (...) { throw std::invalid_argument("Invalid fuel flow correction factor for takeoff phase."); }
                 }
 
-                try { lto.setEmissionIndexHC(LTOPhase::Idle, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 9), columnNames.at(9))); }
+                try { lto.setEmissionIndexHC(LTOPhase::Idle, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 10), columnNames.at(10))); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid HC emission index for idle phase."); }
 
-                try { lto.setEmissionIndexHC(LTOPhase::Approach, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 10), columnNames.at(10))); }
+                try { lto.setEmissionIndexHC(LTOPhase::Approach, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 11), columnNames.at(11))); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid HC emission index for approach phase."); }
 
-                try { lto.setEmissionIndexHC(LTOPhase::ClimbOut, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 11), columnNames.at(11))); }
+                try { lto.setEmissionIndexHC(LTOPhase::ClimbOut, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 12), columnNames.at(12))); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid HC emission index for climb out phase."); }
 
-                try { lto.setEmissionIndexHC(LTOPhase::Takeoff, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 12), columnNames.at(12))); }
+                try { lto.setEmissionIndexHC(LTOPhase::Takeoff, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 13), columnNames.at(13))); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid HC emission index for takeoff phase."); }
 
-                try { lto.setEmissionIndexCO(LTOPhase::Idle, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 13), columnNames.at(13))); }
+                try { lto.setEmissionIndexCO(LTOPhase::Idle, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 14), columnNames.at(14))); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid CO emission index for idle phase."); }
 
-                try { lto.setEmissionIndexCO(LTOPhase::Approach, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 14), columnNames.at(14))); }
+                try { lto.setEmissionIndexCO(LTOPhase::Approach, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 15), columnNames.at(15))); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid CO emission index for approach phase."); }
 
-                try { lto.setEmissionIndexCO(LTOPhase::ClimbOut, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 15), columnNames.at(15))); }
+                try { lto.setEmissionIndexCO(LTOPhase::ClimbOut, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 16), columnNames.at(16))); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid CO emission index for climb out phase."); }
 
-                try { lto.setEmissionIndexCO(LTOPhase::Takeoff, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 16), columnNames.at(16))); }
+                try { lto.setEmissionIndexCO(LTOPhase::Takeoff, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 17), columnNames.at(17))); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid CO emission index for takeoff phase."); }
 
-                try { lto.setEmissionIndexNOx(LTOPhase::Idle, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 17), columnNames.at(17))); }
+                try { lto.setEmissionIndexNOx(LTOPhase::Idle, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 18), columnNames.at(18))); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid NOx emission index for idle phase."); }
 
-                try { lto.setEmissionIndexNOx(LTOPhase::Approach, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 18), columnNames.at(18))); }
+                try { lto.setEmissionIndexNOx(LTOPhase::Approach, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 19), columnNames.at(19))); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid NOx emission index for approach phase."); }
 
-                try { lto.setEmissionIndexNOx(LTOPhase::ClimbOut, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 19), columnNames.at(19))); }
+                try { lto.setEmissionIndexNOx(LTOPhase::ClimbOut, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 20), columnNames.at(20))); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid NOx emission index for climb out phase."); }
 
-                try { lto.setEmissionIndexNOx(LTOPhase::Takeoff, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 20), columnNames.at(20))); }
+                try { lto.setEmissionIndexNOx(LTOPhase::Takeoff, set.EmissionIndexUnits.toSi(csv.getCell<double>(row, 21), columnNames.at(21))); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid NOx emission index for takeoff phase."); }
 
+                try { lto.MixedNozzle = static_cast<bool>(csv.getCell<int>(row, 22)); }
+                catch (...) { throw std::invalid_argument("Invalid mixed nozzle flag."); }
+
+                try { lto.setBypassRatio(csv.getCell<double>(row, 23)); }
+                catch (const GrapeException&) { throw; }
+                catch (...) { throw std::invalid_argument("Invalid bypass ratio."); }
+
+                {
+                    const auto str = csv.getCell<std::string>(row, 24);
+                    if (!str.empty())
+                    {
+                        try { lto.setAirFuelRatio(LTOPhase::Idle, csv.getCell<double>(row, 24)); }
+                        catch (const GrapeException&) { throw; }
+                        catch (...) { throw std::invalid_argument("Invalid air to fuel ratio for idle phase."); }
+                    }
+                }
+
+                {
+                    const auto str = csv.getCell<std::string>(row, 25);
+                    if (!str.empty())
+                    {
+                        try { lto.setAirFuelRatio(LTOPhase::Approach, csv.getCell<double>(row, 25)); }
+                        catch (const GrapeException&) { throw; }
+                        catch (...) { throw std::invalid_argument("Invalid air to fuel ratio for approach phase."); }
+                    }
+                }
+
+                {
+                    const auto str = csv.getCell<std::string>(row, 26);
+                    if (!str.empty())
+                    {
+                        try { lto.setAirFuelRatio(LTOPhase::ClimbOut, csv.getCell<double>(row, 26)); }
+                        catch (const GrapeException&) { throw; }
+                        catch (...) { throw std::invalid_argument("Invalid air to fuel ratio for climb out phase."); }
+                    }
+                }
+
+                {
+                    const auto str = csv.getCell<std::string>(row, 27);
+                    if (!str.empty())
+                    {
+                        try { lto.setAirFuelRatio(LTOPhase::Takeoff, csv.getCell<double>(row, 27)); }
+                        catch (const GrapeException&) { throw; }
+                        catch (...) { throw std::invalid_argument("Invalid air to fuel ratio for takeoff phase."); }
+                    }
+                }
+
+                {
+                    const auto str = csv.getCell<std::string>(row, 28);
+                    if (!str.empty())
+                    {
+                        try { lto.setSmokeNumber(LTOPhase::Idle, csv.getCell<double>(row, 28)); }
+                        catch (const GrapeException&) { throw; }
+                        catch (...) { throw std::invalid_argument("Invalid smoke number for idle phase."); }
+                    }
+                }
+                {
+                    const auto str = csv.getCell<std::string>(row, 29);
+                    if (!str.empty())
+                    {
+                        try { lto.setSmokeNumber(LTOPhase::Approach, csv.getCell<double>(row, 29)); }
+                        catch (const GrapeException&) { throw; }
+                        catch (...) { throw std::invalid_argument("Invalid smoke number for approach phase."); }
+                    }
+                }
+                {
+                    const auto str = csv.getCell<std::string>(row, 30);
+                    if (!str.empty())
+                    {
+                        try { lto.setSmokeNumber(LTOPhase::ClimbOut, csv.getCell<double>(row, 30)); }
+                        catch (const GrapeException&) { throw; }
+                        catch (...) { throw std::invalid_argument("Invalid smoke number for climb out phase."); }
+                    }
+                }
+                {
+                    const auto str = csv.getCell<std::string>(row, 31);
+                    if (!str.empty())
+                    {
+                        try { lto.setSmokeNumber(LTOPhase::Takeoff, csv.getCell<double>(row, 31)); }
+                        catch (const GrapeException&) { throw; }
+                        catch (...) { throw std::invalid_argument("Invalid smoke number for takeoff phase."); }
+                    }
+                }
+
+                {
+                    const auto str = csv.getCell<std::string>(row, 32);
+                    if (!str.empty())
+                    {
+                        try { lto.setEmissionIndexNVPM(LTOPhase::Idle, fromMilligramsPerKilogram(csv.getCell<double>(row, 32))); }
+                        catch (const GrapeException&) { throw; }
+                        catch (...) { throw std::invalid_argument("Invalid nvPm emission index for idle phase."); }
+                    }
+                }
+                {
+                    const auto str = csv.getCell<std::string>(row, 33);
+                    if (!str.empty())
+                    {
+                        try { lto.setEmissionIndexNVPM(LTOPhase::Approach, fromMilligramsPerKilogram(csv.getCell<double>(row, 33))); }
+                        catch (const GrapeException&) { throw; }
+                        catch (...) { throw std::invalid_argument("Invalid nvPm emission index for approach phase."); }
+                    }
+                }
+                {
+                    const auto str = csv.getCell<std::string>(row, 34);
+                    if (!str.empty())
+                    {
+                        try { lto.setEmissionIndexNVPM(LTOPhase::ClimbOut, fromMilligramsPerKilogram(csv.getCell<double>(row, 34))); }
+                        catch (const GrapeException&) { throw; }
+                        catch (...) { throw std::invalid_argument("Invalid nvPm emission index for climb out phase."); }
+                    }
+                }
+                {
+                    const auto str = csv.getCell<std::string>(row, 35);
+                    if (!str.empty())
+                    {
+                        try { lto.setEmissionIndexNVPM(LTOPhase::Takeoff, fromMilligramsPerKilogram(csv.getCell<double>(row, 35))); }
+                        catch (const GrapeException&) { throw; }
+                        catch (...) { throw std::invalid_argument("Invalid nvPm emission index for takeoff phase."); }
+                    }
+                }
+
+                {
+                    const auto str = csv.getCell<std::string>(row, 36);
+                    if (!str.empty())
+                    {
+                        try { lto.setEmissionIndexNVPMNumber(LTOPhase::Idle, csv.getCell<double>(row, 36)); }
+                        catch (const GrapeException&) { throw; }
+                        catch (...) { throw std::invalid_argument("Invalid nvPm number emission index for idle phase."); }
+                    }
+                }
+                {
+                    const auto str = csv.getCell<std::string>(row, 37);
+                    if (!str.empty())
+                    {
+                        try { lto.setEmissionIndexNVPMNumber(LTOPhase::Approach, csv.getCell<double>(row, 37)); }
+                        catch (const GrapeException&) { throw; }
+                        catch (...) { throw std::invalid_argument("Invalid nvPm number emission index for approach phase."); }
+                    }
+                }
+                {
+                    const auto str = csv.getCell<std::string>(row, 38);
+                    if (!str.empty())
+                    {
+                        try { lto.setEmissionIndexNVPMNumber(LTOPhase::ClimbOut, csv.getCell<double>(row, 38)); }
+                        catch (const GrapeException&) { throw; }
+                        catch (...) { throw std::invalid_argument("Invalid nvPm number emission index for climb out phase."); }
+                    }
+                }
+                {
+                    const auto str = csv.getCell<std::string>(row, 39);
+                    if (!str.empty())
+                    {
+                        try { lto.setEmissionIndexNVPMNumber(LTOPhase::Takeoff, csv.getCell<double>(row, 39)); }
+                        catch (const GrapeException&) { throw; }
+                        catch (...) { throw std::invalid_argument("Invalid nvPm number emission index for takeoff phase."); }
+                    }
+                }
                 study.LTOEngines.update(lto);
             }
             catch (const std::exception& err)
@@ -1054,8 +1223,9 @@ namespace GRAPE::IO::CSV {
 
     void importSFI(const std::string& CsvPath) {
         auto& study = Application::study();
+        const auto& set = Application::settings();
 
-        CsvImport csvImp(CsvPath, "SFI coefficients", 9);
+        CsvImport csvImp(CsvPath, "SFI coefficients", 10);
         if (!csvImp.valid())
             return;
         auto& csv = csvImp.CsvImp;
@@ -1069,28 +1239,32 @@ namespace GRAPE::IO::CSV {
                 auto& sfi = study.SFIs.addSFIE(csv.getCell<std::string>(row, 0));
                 newSfi = &sfi;
 
-                try { sfi.A = csv.getCell<double>(row, 1); }
+                try { sfi.setMaximumSeaLevelStaticThrust(set.ThrustUnits.toSi(csv.getCell<double>(row, 1), columnNames.at(1))); }
+                catch (const GrapeException&) { throw; }
+                catch (...) { throw std::invalid_argument("Invalid maximum sea level static thrust."); }
+
+                try { sfi.A = csv.getCell<double>(row, 2); }
                 catch (...) { throw std::invalid_argument("Invalid A coefficient."); }
 
-                try { sfi.B1 = csv.getCell<double>(row, 2); }
+                try { sfi.B1 = csv.getCell<double>(row, 3); }
                 catch (...) { throw std::invalid_argument("Invalid B1 coefficient."); }
 
-                try { sfi.B2 = csv.getCell<double>(row, 3); }
+                try { sfi.B2 = csv.getCell<double>(row, 4); }
                 catch (...) { throw std::invalid_argument("Invalid B2 coefficient."); }
 
-                try { sfi.B3 = csv.getCell<double>(row, 4); }
+                try { sfi.B3 = csv.getCell<double>(row, 5); }
                 catch (...) { throw std::invalid_argument("Invalid B3 coefficient."); }
 
-                try { sfi.K1 = csv.getCell<double>(row, 5); }
+                try { sfi.K1 = csv.getCell<double>(row, 6); }
                 catch (...) { throw std::invalid_argument("Invalid K1 coefficient."); }
 
-                try { sfi.K2 = csv.getCell<double>(row, 6); }
+                try { sfi.K2 = csv.getCell<double>(row, 7); }
                 catch (...) { throw std::invalid_argument("Invalid K2 coefficient."); }
 
-                try { sfi.K3 = csv.getCell<double>(row, 7); }
+                try { sfi.K3 = csv.getCell<double>(row, 8); }
                 catch (...) { throw std::invalid_argument("Invalid K3 coefficient."); }
 
-                try { sfi.K4 = csv.getCell<double>(row, 8); }
+                try { sfi.K4 = csv.getCell<double>(row, 9); }
                 catch (...) { throw std::invalid_argument("Invalid K4 coefficient."); }
 
                 study.SFIs.update(sfi);
@@ -1109,7 +1283,7 @@ namespace GRAPE::IO::CSV {
         auto& study = Application::study();
         const Settings& set = Application::settings();
 
-        CsvImport csvImp(CsvPath, "fleet", 10);
+        CsvImport csvImp(CsvPath, "fleet", 8);
         if (!csvImp.valid())
             return;
         auto& csv = csvImp.CsvImp;
@@ -1127,24 +1301,16 @@ namespace GRAPE::IO::CSV {
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid number of engines."); }
 
-                try { acft.setMaximumSeaLevelStaticThrustE(set.ThrustUnits.toSi(csv.getCell<double>(row, 2), columnNames.at(2))); }
-                catch (const GrapeException&) { throw; }
-                catch (...) { throw std::invalid_argument("Invalid maximum sea level static thrust."); }
-
-                try { acft.setEngineBreakpointTemperatureE(set.TemperatureUnits.toSi(csv.getCell<double>(row, 3), columnNames.at(3))); }
-                catch (const GrapeException&) { throw; }
-                catch (...) { throw std::invalid_argument("Invalid engine breakpoint temperature."); }
-
-                auto doc29PerfStr = csv.getCell<std::string>(row, 4);
-                if (!doc29PerfStr.empty())
+                auto doc29AcftStr = csv.getCell<std::string>(row, 2);
+                if (!doc29AcftStr.empty())
                 {
-                    if (study.Doc29Performances().contains(doc29PerfStr))
-                        study.Aircrafts.setDoc29Performance(acft, &study.Doc29Performances(doc29PerfStr));
+                    if (study.Doc29Aircrafts().contains(doc29AcftStr))
+                        study.Aircrafts.setDoc29Performance(acft, &study.Doc29Aircrafts(doc29AcftStr));
                     else
-                        throw GrapeException(std::format("Doc29 performance '{}' does not exist in this study.", doc29PerfStr));
+                        throw GrapeException(std::format("Doc29 Aircraft '{}' does not exist in this study.", doc29AcftStr));
                 }
 
-                auto sfiStr = csv.getCell<std::string>(row, 5);
+                auto sfiStr = csv.getCell<std::string>(row, 3);
                 if (!sfiStr.empty())
                 {
                     if (study.SFIs().contains(sfiStr))
@@ -1153,7 +1319,7 @@ namespace GRAPE::IO::CSV {
                         throw GrapeException(std::format("SFI ID '{}' does not exist in this study.", sfiStr));
                 }
 
-                auto ltoStr = csv.getCell<std::string>(row, 6);
+                auto ltoStr = csv.getCell<std::string>(row, 4);
                 if (!ltoStr.empty())
                 {
                     if (study.LTOEngines().contains(ltoStr))
@@ -1162,7 +1328,7 @@ namespace GRAPE::IO::CSV {
                         throw GrapeException(std::format("LTO engine '{}' does not exist in this study.", ltoStr));
                 }
 
-                auto doc29NsStr = csv.getCell<std::string>(row, 7);
+                auto doc29NsStr = csv.getCell<std::string>(row, 5);
                 if (!doc29NsStr.empty())
                 {
                     if (study.Doc29Noises().contains(doc29NsStr))
@@ -1171,11 +1337,11 @@ namespace GRAPE::IO::CSV {
                         throw GrapeException(std::format("Doc29 noise ID '{}' does not exist in this study.", doc29NsStr));
                 }
 
-                try { acft.Doc29NoiseDeltaArrivals = csv.getCell<double>(row, 8); }
+                try { acft.Doc29NoiseDeltaArrivals = csv.getCell<double>(row, 6); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid Doc29 noise delta for arrivals."); }
 
-                try { acft.Doc29NoiseDeltaDepartures = csv.getCell<double>(row, 9); }
+                try { acft.Doc29NoiseDeltaDepartures = csv.getCell<double>(row, 7); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid Doc29 noise delta for arrivals."); }
 
@@ -1750,22 +1916,28 @@ namespace GRAPE::IO::CSV {
             {
                 auto opId = csv.getCell<std::string>(row, 0);
 
-                auto aptName = csv.getCell<std::string>(row, 1);
-                if (!study.Airports().contains(aptName))
-                    throw GrapeException(std::format("Airport '{}' does not exist in this study.", aptName));
-                const Airport& apt = study.Airports(aptName);
-
-                auto rwyName = csv.getCell<std::string>(row, 2);
-                if (!apt.Runways.contains(rwyName))
-                    throw GrapeException(std::format("Runway '{}' does not exist in airport '{}'.", rwyName, aptName));
-                const Runway& rwy = apt.Runways(rwyName);
-
-                auto opTypeStr = csv.getCell<std::string>(row, 3);
+                auto opTypeStr = csv.getCell<std::string>(row, 1);
                 if (!OperationTypes.contains(opTypeStr))
                     throw GrapeException(std::format("Invalid operation type '{}'.", opTypeStr));
                 const OperationType opType = OperationTypes.fromString(opTypeStr);
 
+                bool hasRoute = true;
+
+                auto aptName = csv.getCell<std::string>(row, 2);
+                if (aptName.empty())
+                    hasRoute = false;
+                if (hasRoute && !study.Airports().contains(aptName))
+                    throw GrapeException(std::format("Airport '{}' does not exist in this study.", aptName));
+
+                auto rwyName = csv.getCell<std::string>(row, 3);
+                if (rwyName.empty())
+                    hasRoute = false;
+                if (hasRoute && !study.Airports(aptName).Runways.contains(rwyName))
+                    throw GrapeException(std::format("Runway '{}' does not exist in airport '{}'.", rwyName, aptName));
+
                 auto rteName = csv.getCell<std::string>(row, 4);
+                if (rteName.empty())
+                    hasRoute = false;
 
                 // 5 = Time
                 // 6 = Count
@@ -1783,14 +1955,18 @@ namespace GRAPE::IO::CSV {
                 {
                 case OperationType::Arrival:
                     {
-                        if (!rwy.ArrivalRoutes.contains(rteName))
-                            throw GrapeException(std::format("Arrival route '{}' does not exist in runway '{}' of airport '{}'.", rteName, rwyName, aptName));
-                        RouteArrival& arrRte = *rwy.ArrivalRoutes(rteName);
-
-                        auto& op = study.Operations.addArrivalFlightE(arrRte, acft, opId);
+                        auto& op = study.Operations.addArrivalFlightE(opId, acft);
 
                         try
                         {
+                            if (hasRoute)
+                            {
+                                const auto& rwy = study.Airports(aptName).Runways(rwyName);
+                                if (!rwy.ArrivalRoutes.contains(rteName))
+                                    throw GrapeException(std::format("Arrival route '{}' does not exist in runway '{}' of airport '{}'.", rteName, rwyName, aptName));
+                                op.setRoute(rwy.ArrivalRoutes(rteName).get());
+                            }
+
                             op.setTime(csv.getCell<std::string>(row, 5));
 
                             try { op.setCount(csv.getCell<double>(row, 6)); }
@@ -1803,9 +1979,9 @@ namespace GRAPE::IO::CSV {
 
                             if (!doc29ProfName.empty())
                             {
-                                if (!acft.Doc29Perf->ArrivalProfiles.contains(doc29ProfName))
-                                    throw GrapeException(std::format("Doc29 arrival profile '{}' does not exist in Doc29 performance '{}' associated with aircraft '{}'", doc29ProfName, acft.Doc29Perf->Name, fleetId));
-                                study.Operations.setDoc29Profile(op, acft.Doc29Perf->ArrivalProfiles(doc29ProfName).get());
+                                if (!acft.Doc29Acft->ArrivalProfiles.contains(doc29ProfName))
+                                    throw GrapeException(std::format("Doc29 arrival profile '{}' does not exist in Doc29 performance '{}' associated with aircraft '{}'", doc29ProfName, acft.Doc29Acft->Name, fleetId));
+                                study.Operations.setDoc29Profile(op, acft.Doc29Acft->ArrivalProfiles(doc29ProfName).get());
                             }
 
                             study.Operations.update(op);
@@ -1819,14 +1995,18 @@ namespace GRAPE::IO::CSV {
                     }
                 case OperationType::Departure:
                     {
-                        if (!rwy.DepartureRoutes.contains(rteName))
-                            throw GrapeException(std::format("Departure route '{}' does not exist in runway '{}' of airport '{}'.", rteName, rwyName, aptName));
-                        RouteDeparture& depRte = *rwy.DepartureRoutes(rteName);
-
-                        auto& op = study.Operations.addDepartureFlightE(depRte, acft, opId);
+                        auto& op = study.Operations.addDepartureFlightE(opId, acft);
 
                         try
                         {
+                            if (hasRoute)
+                            {
+                                const auto& rwy = study.Airports(aptName).Runways(rwyName);
+                                if (!rwy.DepartureRoutes.contains(rteName))
+                                    throw GrapeException(std::format("Departure route '{}' does not exist in runway '{}' of airport '{}'.", rteName, rwyName, aptName));
+                                op.setRoute(rwy.DepartureRoutes(rteName).get());
+                            }
+
                             op.setTime(csv.getCell<std::string>(row, 5));
 
                             try { op.setCount(csv.getCell<double>(row, 6)); }
@@ -1839,9 +2019,9 @@ namespace GRAPE::IO::CSV {
 
                             if (!doc29ProfName.empty())
                             {
-                                if (!acft.Doc29Perf->DepartureProfiles.contains(doc29ProfName))
-                                    throw GrapeException(std::format("Doc29 departure profile '{}' does not exist in Doc29 performance '{}' associated with aircraft '{}'", doc29ProfName, acft.Doc29Perf->Name, fleetId));
-                                study.Operations.setDoc29Profile(op, acft.Doc29Perf->DepartureProfiles(doc29ProfName).get());
+                                if (!acft.Doc29Acft->DepartureProfiles.contains(doc29ProfName))
+                                    throw GrapeException(std::format("Doc29 departure profile '{}' does not exist in Doc29 performance '{}' associated with aircraft '{}'", doc29ProfName, acft.Doc29Acft->Name, fleetId));
+                                study.Operations.setDoc29Profile(op, acft.Doc29Acft->DepartureProfiles(doc29ProfName).get());
                             }
 
                             if (!csv.getCell<std::string>(row, 10).empty())
@@ -1908,7 +2088,7 @@ namespace GRAPE::IO::CSV {
                 {
                 case OperationType::Arrival:
                     {
-                        auto& op = study.Operations.addArrivalTrack4dE(acft, opId);
+                        auto& op = study.Operations.addArrivalTrack4dE(opId, acft);
 
                         try
                         {
@@ -1929,7 +2109,7 @@ namespace GRAPE::IO::CSV {
                     }
                 case OperationType::Departure:
                     {
-                        auto& op = study.Operations.addDepartureTrack4dE(acft, opId);
+                        auto& op = study.Operations.addDepartureTrack4dE(opId, acft);
 
                         try
                         {
@@ -1995,10 +2175,10 @@ namespace GRAPE::IO::CSV {
                     }
                 case OperationType::Departure:
                     {
-                        if (!study.Operations.track4dArrivals().contains(opId))
-                            throw GrapeException(std::format("Track 4D arrival operation '{}' doesn't exist in this study.", opId));
+                        if (!study.Operations.track4dDepartures().contains(opId))
+                            throw GrapeException(std::format("Track 4D departure operation '{}' doesn't exist in this study.", opId));
 
-                        op = &study.Operations.track4dArrivals().at(opId);
+                        op = &study.Operations.track4dDepartures().at(opId);
                         break;
                     }
                 default: GRAPE_ASSERT(false);
@@ -2144,7 +2324,7 @@ namespace GRAPE::IO::CSV {
         auto& study = Application::study();
         const Settings& set = Application::settings();
 
-        CsvImport csvImp(CsvPath, "scenario operations", 4);
+        CsvImport csvImp(CsvPath, "performance runs", 20);
         if (!csvImp.valid())
             return;
         auto& csv = csvImp.CsvImp;
@@ -2208,32 +2388,32 @@ namespace GRAPE::IO::CSV {
                     catch (...) { throw std::invalid_argument("Invalid maximum altitude."); }
                 }
 
-                auto filterMinCumGroundDist = csv.getCell<std::string>(row, 7);
-                if (!filterMinCumGroundDist.empty())
+                auto filterMinCumGroundDistStr = csv.getCell<std::string>(row, 7);
+                if (!filterMinCumGroundDistStr.empty())
                 {
                     try { newPerfRun.PerfRunSpec.setFilterMinimumCumulativeGroundDistance(set.DistanceUnits.toSi(csv.getCell<double>(row, 7), columnNames.at(7))); }
                     catch (const GrapeException&) { throw; }
                     catch (...) { throw std::invalid_argument("Invalid minimum cumulative ground distance."); }
                 }
 
-                auto filterMaxCumGroundDist = csv.getCell<std::string>(row, 8);
-                if (!filterMaxCumGroundDist.empty())
+                auto filterMaxCumGroundDistStr = csv.getCell<std::string>(row, 8);
+                if (!filterMaxCumGroundDistStr.empty())
                 {
                     try { newPerfRun.PerfRunSpec.setFilterMaximumCumulativeGroundDistance(set.DistanceUnits.toSi(csv.getCell<double>(row, 8), columnNames.at(8))); }
                     catch (const GrapeException&) { throw; }
                     catch (...) { throw std::invalid_argument("Invalid maximum cumulative ground distance."); }
                 }
 
-                auto filterGroundDistThr = csv.getCell<std::string>(row, 9);
-                if (!filterGroundDistThr.empty())
+                auto filterGroundDistThrStr = csv.getCell<std::string>(row, 9);
+                if (!filterGroundDistThrStr.empty())
                 {
                     try { newPerfRun.PerfRunSpec.setFilterGroundDistanceThreshold(set.DistanceUnits.toSi(csv.getCell<double>(row, 9), columnNames.at(9))); }
                     catch (const GrapeException&) { throw; }
                     catch (...) { throw std::invalid_argument("Invalid ground distance filter threshold."); }
                 }
 
-                auto segmentationSpeedDeltaThr = csv.getCell<std::string>(row, 10);
-                if (!segmentationSpeedDeltaThr.empty())
+                auto segmentationSpeedDeltaThrStr = csv.getCell<std::string>(row, 10);
+                if (!segmentationSpeedDeltaThrStr.empty())
                 {
                     try { newPerfRun.PerfRunSpec.setSegmentationSpeedDeltaThreshold(set.SpeedUnits.toSi(csv.getCell<double>(row, 10), columnNames.at(10))); }
                     catch (const GrapeException&) { throw; }
@@ -2245,30 +2425,60 @@ namespace GRAPE::IO::CSV {
                     throw GrapeException(std::format("Invalid performance model '{}'.", flightsPerfModelStr));
                 newPerfRun.PerfRunSpec.FlightsPerformanceMdl = PerformanceModelTypes.fromString(flightsPerfModelStr);
 
-                try { newPerfRun.PerfRunSpec.FlightsDoc29Segmentation = static_cast<bool>(csv.getCell<int>(row, 12)); }
-                catch (...) { throw std::invalid_argument("Invalid flights Doc29 segmentation flag."); }
-
-                auto tracks4dMinPoints = csv.getCell<std::string>(row, 13);
-                if (!tracks4dMinPoints.empty())
+                auto flightsDoc29SegmentationStr = csv.getCell<std::string>(row, 12);
+                if (!flightsDoc29SegmentationStr.empty())
                 {
-                    try { newPerfRun.PerfRunSpec.setTracks4dMinimumPoints(csv.getCell<int>(row, 13)); }
+                    try { newPerfRun.PerfRunSpec.FlightsDoc29Segmentation = static_cast<bool>(csv.getCell<int>(row, 12)); }
+                    catch (...) { throw std::invalid_argument("Invalid flights Doc29 segmentation flag."); }
+                }
+
+                auto tracks4dCalculatePerformanceStr = csv.getCell<std::string>(row, 13);
+                if (!tracks4dCalculatePerformanceStr.empty())
+                {
+                    try { newPerfRun.PerfRunSpec.Tracks4dCalculatePerformance = static_cast<bool>(csv.getCell<int>(row, 13)); }
+                    catch (...) { throw std::invalid_argument("Invalid tracks 4D calculate performance flag."); }
+                }
+
+                auto tracks4dMinPointsStr = csv.getCell<std::string>(row, 14);
+                if (!tracks4dMinPointsStr.empty())
+                {
+                    try { newPerfRun.PerfRunSpec.setTracks4dMinimumPoints(csv.getCell<int>(row, 14)); }
                     catch (const GrapeException&) { throw; }
                     catch (...) { throw std::invalid_argument("Invalid tracks 4D minimum points."); }
                 }
 
-                try { newPerfRun.PerfRunSpec.Tracks4dRecalculateCumulativeGroundDistance = static_cast<bool>(csv.getCell<int>(row, 14)); }
-                catch (...) { throw std::invalid_argument("Invalid tracks 4D recalculate cumulative ground distance flag."); }
+                auto tracks4dRecalculateCumulativeGroundDistanceStr = csv.getCell<std::string>(row, 15);
+                if (!tracks4dRecalculateCumulativeGroundDistanceStr.empty())
+                {
+                    try { newPerfRun.PerfRunSpec.Tracks4dRecalculateCumulativeGroundDistance = static_cast<bool>(csv.getCell<int>(row, 15)); }
+                    catch (...) { throw std::invalid_argument("Invalid tracks 4D recalculate cumulative ground distance flag."); }
+                }
 
-                try { newPerfRun.PerfRunSpec.Tracks4dRecalculateGroundspeed = static_cast<bool>(csv.getCell<int>(row, 15)); }
-                catch (...) { throw std::invalid_argument("Invalid tracks 4D recalculate groundspeed flag."); }
+                auto tracks4dRecalculateGroundspeedStr = csv.getCell<std::string>(row, 16);
+                if (!tracks4dRecalculateGroundspeedStr.empty())
+                {
+                    try { newPerfRun.PerfRunSpec.Tracks4dRecalculateGroundspeed = static_cast<bool>(csv.getCell<int>(row, 16)); }
+                    catch (...) { throw std::invalid_argument("Invalid tracks 4D recalculate groundspeed flag."); }
+                }
 
-                try { newPerfRun.PerfRunSpec.Tracks4dRecalculateFuelFlow = static_cast<bool>(csv.getCell<int>(row, 16)); }
-                catch (...) { throw std::invalid_argument("Invalid tracks 4D recalculate fuel flow flag."); }
+                auto tracks4dRecalculateFuelFlowStr = csv.getCell<std::string>(row, 17);
+                if (!tracks4dRecalculateFuelFlowStr.empty())
+                {
+                    try { newPerfRun.PerfRunSpec.Tracks4dRecalculateFuelFlow = static_cast<bool>(csv.getCell<int>(row, 17)); }
+                    catch (...) { throw std::invalid_argument("Invalid tracks 4D recalculate fuel flow flag."); }
+                }
 
-                auto fuelFlowModelStr = csv.getCell<std::string>(row, 17);
+                auto fuelFlowModelStr = csv.getCell<std::string>(row, 18);
                 if (!FuelFlowModelTypes.contains(fuelFlowModelStr))
                     throw GrapeException(std::format("Invalid fuel flow model '{}'.", fuelFlowModelStr));
                 newPerfRun.PerfRunSpec.FuelFlowMdl = FuelFlowModelTypes.fromString(fuelFlowModelStr);
+
+                auto fuelFlowLTOAltitudeCorrectionStr = csv.getCell<std::string>(row, 19);
+                if (!fuelFlowLTOAltitudeCorrectionStr.empty())
+                {
+                    try { newPerfRun.PerfRunSpec.FuelFlowLTOAltitudeCorrection = static_cast<bool>(csv.getCell<int>(row, 19)); }
+                    catch (...) { throw std::invalid_argument("Invalid fuel flow LTO altitude correction flag."); }
+                }
 
                 study.Scenarios.update(newPerfRun);
             }
@@ -2739,7 +2949,7 @@ namespace GRAPE::IO::CSV {
         auto& study = Application::study();
         const auto& set = Application::settings();
 
-        CsvImport csvImp(CsvPath, "emissions runs", 9);
+        CsvImport csvImp(CsvPath, "emissions runs", 23);
         if (!csvImp.valid())
             return;
         auto& csv = csvImp.CsvImp;
@@ -2750,55 +2960,114 @@ namespace GRAPE::IO::CSV {
             const EmissionsRun* newEmiRunPtr = nullptr;
             try
             {
-                auto scenName = csv.getCell<std::string>(row, 0);
+                std::size_t col = 0;
+                auto scenName = csv.getCell<std::string>(row, col++);
                 if (scenName.empty())
                     throw GrapeException("Empty scenario name not allowed.");
                 if (!study.Scenarios().contains(scenName))
                     throw GrapeException(std::format("Scenario '{}' does not exist in this study.", scenName));
                 auto& scen = study.Scenarios().at(scenName);
 
-                auto perfRunName = csv.getCell<std::string>(row, 1);
+                auto perfRunName = csv.getCell<std::string>(row, col++);
                 if (perfRunName.empty())
                     throw GrapeException("Empty performance run name not allowed.");
                 if (!scen.PerformanceRuns.contains(perfRunName))
                     throw GrapeException(std::format("Performance run '{}' does not exist in scenario '{}'.", perfRunName, scen.Name));
                 auto& perfRun = scen.PerformanceRuns(perfRunName);
 
-                auto emiRunName = csv.getCell<std::string>(row, 2);
+                auto emiRunName = csv.getCell<std::string>(row, col++);
                 auto& newEmiRun = study.Scenarios.addEmissionsRunE(perfRun, emiRunName);
                 newEmiRunPtr = &newEmiRun;
 
-                auto emiMdlStr = csv.getCell<std::string>(row, 3);
-                if (!EmissionsModelTypes.contains(emiMdlStr))
-                    throw GrapeException(std::format("Invalid emissions model type '{}'", emiMdlStr));
-                newEmiRun.EmissionsRunSpec.EmissionsMdl = EmissionsModelTypes.fromString(emiMdlStr);
+                try { newEmiRun.EmissionsRunSpec.CalculateGasEmissions = static_cast<bool>(csv.getCell<int>(row, col++)); }
+                catch (...) { throw std::invalid_argument("Invalid calculate gas emissions flag."); }
 
-                auto minAltStr = csv.getCell<std::string>(row, 4);
+                try { newEmiRun.EmissionsRunSpec.CalculateParticleEmissions = static_cast<bool>(csv.getCell<int>(row, col++)); }
+                catch (...) { throw std::invalid_argument("Invalid calculate particle emissions flag."); }
+
+                auto emiGasMdlStr = csv.getCell<std::string>(row, col++);
+                if (!EmissionsModelTypes.contains(emiGasMdlStr))
+                    throw GrapeException(std::format("Invalid emissions model type '{}'", emiGasMdlStr));
+                newEmiRun.EmissionsRunSpec.EmissionsMdl = EmissionsModelTypes.fromString(emiGasMdlStr);
+
+                try { newEmiRun.EmissionsRunSpec.BFFM2Model = static_cast<bool>(csv.getCell<int>(row, col++)); }
+                catch (...) { throw std::invalid_argument("Invalid use BFFM 2 for gas pollutant EIs flag."); }
+
+                auto emiPtMdlStr = csv.getCell<std::string>(row, col++);
+                if (!EmissionsParticleSmokeNumberModelTypes.contains(emiPtMdlStr))
+                    throw GrapeException(std::format("Invalid smoke number to particle emission index model type '{}'", emiPtMdlStr));
+                newEmiRun.EmissionsRunSpec.ParticleSmokeNumberModel = EmissionsParticleSmokeNumberModelTypes.fromString(emiPtMdlStr);
+
+                try { newEmiRun.EmissionsRunSpec.setLTOCycle(LTOPhase::Idle, csv.getCell<double>(row, col++)); }
+                catch (...) { throw std::invalid_argument("Invalid LTO cycle time for idle phase."); }
+
+                try { newEmiRun.EmissionsRunSpec.setLTOCycle(LTOPhase::Approach, csv.getCell<double>(row, col++)); }
+                catch (...) { throw std::invalid_argument("Invalid LTO cycle time for approach phase."); }
+
+                try { newEmiRun.EmissionsRunSpec.setLTOCycle(LTOPhase::ClimbOut, csv.getCell<double>(row, col++)); }
+                catch (...) { throw std::invalid_argument("Invalid LTO cycle time for climb out phase."); }
+
+                try { newEmiRun.EmissionsRunSpec.setLTOCycle(LTOPhase::Takeoff, csv.getCell<double>(row, col++)); }
+                catch (...) { throw std::invalid_argument("Invalid LTO cycle time for takeoff phase."); }
+
+                try { newEmiRun.EmissionsRunSpec.setParticleEffectiveDensity(csv.getCell<double>(row, col++)); }
+                catch (const GrapeException&) { throw; }
+                catch (...) { throw std::invalid_argument("Invalid particle effective density."); }
+
+                try { newEmiRun.EmissionsRunSpec.setParticleGeometricStandardDeviation(csv.getCell<double>(row, col++)); }
+                catch (const GrapeException&) { throw; }
+                catch (...) { throw std::invalid_argument("Invalid particle geometric standard deviation."); }
+
+                try { newEmiRun.EmissionsRunSpec.setParticleGeometricMeanDiameter(LTOPhase::Idle, csv.getCell<double>(row, col++) * 1e-9); }
+                catch (const GrapeException&) { throw; }
+                catch (...) { throw std::invalid_argument("Invalid particle geometric mead diameter for idle phase."); }
+
+                try { newEmiRun.EmissionsRunSpec.setParticleGeometricMeanDiameter(LTOPhase::Approach, csv.getCell<double>(row, col++) * 1e-9); }
+                catch (const GrapeException&) { throw; }
+                catch (...) { throw std::invalid_argument("Invalid particle geometric mead diameter for approach phase."); }
+
+                try { newEmiRun.EmissionsRunSpec.setParticleGeometricMeanDiameter(LTOPhase::ClimbOut, csv.getCell<double>(row, col++) * 1e-9); }
+                catch (const GrapeException&) { throw; }
+                catch (...) { throw std::invalid_argument("Invalid particle geometric mead diameter for climb out phase."); }
+
+                try { newEmiRun.EmissionsRunSpec.setParticleGeometricMeanDiameter(LTOPhase::Takeoff, csv.getCell<double>(row, col++) * 1e-9); }
+                catch (const GrapeException&) { throw; }
+                catch (...) { throw std::invalid_argument("Invalid particle geometric mead diameter for takeoff phase."); }
+
+                auto minAltStr = csv.getCell<std::string>(row, col++);
                 if (!minAltStr.empty())
-                    try { newEmiRun.EmissionsRunSpec.setFilterMinimumAltitude(set.AltitudeUnits.toSi(csv.getCell<double>(row, 11), columnNames.at(11))); }
-                catch (const GrapeException&) { throw; }
-                catch (...) { throw std::invalid_argument("Invalid minimum altitude."); }
+                {
+                    try { newEmiRun.EmissionsRunSpec.setFilterMinimumAltitude(set.AltitudeUnits.toSi(csv.getCell<double>(row, col - 1), columnNames.at(col - 1))); }
+                    catch (const GrapeException&) { throw; }
+                    catch (...) { throw std::invalid_argument("Invalid minimum altitude."); }
+                }
 
-                auto maxAltStr = csv.getCell<std::string>(row, 5);
+                auto maxAltStr = csv.getCell<std::string>(row, col++);
                 if (!maxAltStr.empty())
-                    try { newEmiRun.EmissionsRunSpec.setFilterMaximumAltitude(set.AltitudeUnits.toSi(csv.getCell<double>(row, 12), columnNames.at(12))); }
-                catch (const GrapeException&) { throw; }
-                catch (...) { throw std::invalid_argument("Invalid maximum altitude."); }
+                {
+                    try { newEmiRun.EmissionsRunSpec.setFilterMaximumAltitude(set.AltitudeUnits.toSi(csv.getCell<double>(row, col - 1), columnNames.at(col - 1))); }
+                    catch (const GrapeException&) { throw; }
+                    catch (...) { throw std::invalid_argument("Invalid maximum altitude."); }
+                }
 
-                auto minCumGroundDist = csv.getCell<std::string>(row, 6);
+                auto minCumGroundDist = csv.getCell<std::string>(row, col++);
                 if (!minCumGroundDist.empty())
-                    try { newEmiRun.EmissionsRunSpec.setFilterMinimumCumulativeGroundDistance(set.DistanceUnits.toSi(csv.getCell<double>(row, 13), columnNames.at(13))); }
-                catch (const GrapeException&) { throw; }
-                catch (...) { throw std::invalid_argument("Invalid minimum cumulative ground distance."); }
+                {
+                    try { newEmiRun.EmissionsRunSpec.setFilterMinimumCumulativeGroundDistance(set.DistanceUnits.toSi(csv.getCell<double>(row, col - 1), columnNames.at(col - 1))); }
+                    catch (const GrapeException&) { throw; }
+                    catch (...) { throw std::invalid_argument("Invalid minimum cumulative ground distance."); }
+                }
 
-                auto maxCumGroundDist = csv.getCell<std::string>(row, 7);
+                auto maxCumGroundDist = csv.getCell<std::string>(row, col++);
                 if (!maxCumGroundDist.empty())
-                    try { newEmiRun.EmissionsRunSpec.setFilterMaximumCumulativeGroundDistance(set.DistanceUnits.toSi(csv.getCell<double>(row, 14), columnNames.at(14))); }
-                catch (const GrapeException&) { throw; }
-                catch (...) { throw std::invalid_argument("Invalid maximum cumulative ground distance."); }
+                {
+                    try { newEmiRun.EmissionsRunSpec.setFilterMaximumCumulativeGroundDistance(set.DistanceUnits.toSi(csv.getCell<double>(row, col - 1), columnNames.at(col - 1))); }
+                    catch (const GrapeException&) { throw; }
+                    catch (...) { throw std::invalid_argument("Invalid maximum cumulative ground distance."); }
+                }
 
-                try { newEmiRun.EmissionsRunSpec.SaveSegmentResults = static_cast<bool>(csv.getCell<int>(row, 8)); }
-                catch (...) { throw std::invalid_argument("Invalid value for save segment results."); }
+                try { newEmiRun.EmissionsRunSpec.SaveSegmentResults = static_cast<bool>(csv.getCell<int>(row, col++)); }
+                catch (...) { throw std::invalid_argument("Invalid save segment results flag."); }
             }
             catch (const std::exception& err)
             {

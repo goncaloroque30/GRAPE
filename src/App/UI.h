@@ -33,6 +33,7 @@ namespace GRAPE {
         // Text & Tooltips
         void textCentered(const char* Text);
         void textInfo(const std::string& Text);
+        void textInfoWrapped(const std::string& Text);
         void textInvalid(const std::string& Text);
         void setTooltipInvalid(const std::string& Text);
         void pushInvalidTextStyle();
@@ -77,6 +78,8 @@ namespace GRAPE {
         bool inputDouble(std::string_view TooltipText, double& Value, double Minimum, double Maximum, std::size_t Decimals);
         bool inputDouble(std::string_view TooltipText, double& Value, double Minimum, double Maximum, std::string_view Suffix);
         bool inputDouble(std::string_view TooltipText, double& Value, double Minimum, double Maximum, std::size_t Decimals, std::string_view Suffix);
+
+        bool inputDoubleScientific(std::string_view TooltipText, double& Value, double Minimum, double Maximum, bool NotNull, std::size_t Decimals, std::string_view Suffix);
 
         template<typename Enum>
         bool inputDouble(std::string_view TooltipText, double& Value, const Unit<Enum>& Un, bool Suffix = true, bool NotNull = true) {

@@ -64,6 +64,16 @@ namespace GRAPE {
         return true;
     }
 
+    bool Database::create(const std::filesystem::path& FilePath, const char* CreateSql) {
+        if (!open(FilePath))
+            return false;
+
+        const int errExec = sqlite3_exec(m_File, CreateSql, nullptr, nullptr, nullptr);
+        GRAPE_ASSERT(errExec == SQLITE_OK, "SQLite error executing create statement: '{2}'", sqlite3_errstr(errExec));
+
+        return true;
+    }
+
     bool Database::create(const std::filesystem::path& FilePath, const std::uint8_t* Buffer, int BufferSize) {
         sqlite3* memoryDb = nullptr;
         if (const int errOpen = sqlite3_open_v2(":memory:", &memoryDb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr))
@@ -204,12 +214,12 @@ namespace GRAPE {
 
         if (err == SQLITE_BUSY)
         {
-            GRAPE_DEBUG_INFO("Commiting transaction, database was BUSY. Trying again...");
+            GRAPE_DEBUG_INFO("Committing transaction, database was BUSY. Trying again...");
             commitTransaction();
             return;
         }
 
-        GRAPE_ASSERT(false, "SQLite error commiting transaction: '{2}'.", sqlite3_errstr(err));
+        GRAPE_ASSERT(false, "SQLite error committing transaction: '{2}'.", sqlite3_errstr(err));
     }
 
     void Database::execute(const std::string& Query) const {
@@ -217,5 +227,13 @@ namespace GRAPE {
 
         const int errExec = sqlite3_exec(m_File, Query.c_str(), nullptr, nullptr, nullptr);
         GRAPE_ASSERT(errExec == SQLITE_OK, "SQLite error executing statement: '{2}'", sqlite3_errstr(errExec));
+    }
+
+    void Database::setApplicationId(int Id) const {
+        execute(std::format("PRAGMA application_id = {}", Id));
+    }
+
+    void Database::setUserVersion(int UserVersion) const {
+        execute(std::format("PRAGMA user_version = {}", UserVersion));
     }
 }

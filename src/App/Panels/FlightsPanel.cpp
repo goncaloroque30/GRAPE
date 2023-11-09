@@ -143,18 +143,26 @@ namespace GRAPE {
                 if (ImGui::IsItemClicked())
                     select(arr);
 
-                // Airport
-                UI::tableNextColumn(false);
-                UI::textInfo(arr.route().parentAirport().Name);
+                if (arr.hasRoute())
+                {
+                    // Airport
+                    UI::tableNextColumn(false);
+                    UI::textInfo(arr.route().parentAirport().Name);
 
-                // Runway
-                UI::tableNextColumn(false);
-                UI::textInfo(arr.route().parentRunway().Name);
+                    // Runway
+                    UI::tableNextColumn(false);
+                    UI::textInfo(arr.route().parentRunway().Name);
+                }
+                else
+                {
+                    UI::tableNextColumn(false);
+                    UI::tableNextColumn(false);
+                }
 
                 // Route
                 UI::tableNextColumn();
-                const auto& currRteName = arr.route().Name;
-                if (ImGui::BeginCombo("##Route", currRteName.c_str()))
+                const char* currRteName = arr.hasRoute() ? arr.route().Name.c_str() : "";
+                if (ImGui::BeginCombo("##Route", currRteName))
                 {
                     for (const auto& apt : study.Airports() | std::views::values)
                     {
@@ -166,8 +174,8 @@ namespace GRAPE {
                                 {
                                     for (const auto& arrRte : rwy.ArrivalRoutes | std::views::values)
                                     {
-                                        if (ImGui::Selectable(arrRte->Name.c_str(), arrRte->Name.c_str() == currRteName.c_str()))
-                                            study.Operations.setRoute(arr, *arrRte);
+                                        if (ImGui::Selectable(arrRte->Name.c_str(), arrRte->Name.c_str() == currRteName))
+                                            study.Operations.setRoute(arr, arrRte.get());
                                     }
                                     ImGui::EndMenu();
                                 }
@@ -175,6 +183,8 @@ namespace GRAPE {
                             ImGui::EndMenu();
                         }
                     }
+                    if (ImGui::Selectable("##None", !arr.hasRoute()))
+                        study.Operations.setRoute(arr, nullptr);
                     ImGui::EndCombo();
                 }
                 if (ImGui::IsItemClicked())
@@ -220,13 +230,13 @@ namespace GRAPE {
                 if (ImGui::IsItemClicked())
                     select(arr);
 
-                // Doc29. Profile
+                // Doc29 Profile
                 UI::tableNextColumn();
                 const char* currProfName = arr.Doc29Prof ? arr.Doc29Prof->Name.c_str() : "";
                 if (ImGui::BeginCombo("##Doc29Profile", currProfName))
                 {
-                    if (arr.aircraft().Doc29Perf)
-                        for (const auto& [profId, prof] : arr.aircraft().Doc29Perf->ArrivalProfiles)
+                    if (arr.aircraft().Doc29Acft)
+                        for (const auto& [profId, prof] : arr.aircraft().Doc29Acft->ArrivalProfiles)
                         {
                             const bool selected = arr.Doc29Prof == prof.get();
                             if (ImGui::Selectable(profId.c_str(), selected))
@@ -328,18 +338,26 @@ namespace GRAPE {
                 if (ImGui::IsItemClicked())
                     select(dep);
 
-                // Airport
-                UI::tableNextColumn(false);
-                UI::textInfo(dep.route().parentAirport().Name);
+                if (dep.hasRoute())
+                {
+                    // Airport
+                    UI::tableNextColumn(false);
+                    UI::textInfo(dep.route().parentAirport().Name);
 
-                // Runway
-                UI::tableNextColumn(false);
-                UI::textInfo(dep.route().parentRunway().Name);
+                    // Runway
+                    UI::tableNextColumn(false);
+                    UI::textInfo(dep.route().parentRunway().Name);
+                }
+                else
+                {
+                    UI::tableNextColumn(false);
+                    UI::tableNextColumn(false);
+                }
 
                 // Route
                 UI::tableNextColumn();
-                const auto& currRteName = dep.route().Name;
-                if (ImGui::BeginCombo("##Route", currRteName.c_str()))
+                const char* currRteName = dep.hasRoute() ? dep.route().Name.c_str() : "";
+                if (ImGui::BeginCombo("##Route", currRteName))
                 {
                     for (const auto& apt : study.Airports() | std::views::values)
                     {
@@ -351,8 +369,8 @@ namespace GRAPE {
                                 {
                                     for (const auto& depRte : rwy.DepartureRoutes | std::views::values)
                                     {
-                                        if (ImGui::Selectable(depRte->Name.c_str(), depRte->Name.c_str() == currRteName.c_str()))
-                                            study.Operations.setRoute(dep, *depRte);
+                                        if (ImGui::Selectable(depRte->Name.c_str(), depRte->Name.c_str() == currRteName))
+                                            study.Operations.setRoute(dep, depRte.get());
                                     }
                                     ImGui::EndMenu();
                                 }
@@ -360,6 +378,8 @@ namespace GRAPE {
                             ImGui::EndMenu();
                         }
                     }
+                    if (ImGui::Selectable("##None", !dep.hasRoute()))
+                        study.Operations.setRoute(dep, nullptr);
                     ImGui::EndCombo();
                 }
                 if (ImGui::IsItemClicked())
@@ -407,11 +427,11 @@ namespace GRAPE {
 
                 // Doc29 Profile
                 UI::tableNextColumn();
-                const char* currProfName = dep.Doc29Prof ? dep.Doc29Prof->Name.c_str() : "";
+                const char* currProfName = dep.hasDoc29Profile() ? dep.Doc29Prof->Name.c_str() : "";
                 if (ImGui::BeginCombo("##Doc29Profile", currProfName))
                 {
-                    if (dep.aircraft().Doc29Perf)
-                        for (const auto& [profId, prof] : dep.aircraft().Doc29Perf->DepartureProfiles)
+                    if (dep.aircraft().Doc29Acft)
+                        for (const auto& [profId, prof] : dep.aircraft().Doc29Acft->DepartureProfiles)
                         {
                             const bool selected = dep.Doc29Prof == prof.get();
                             if (ImGui::Selectable(profId.c_str(), selected))
@@ -420,7 +440,7 @@ namespace GRAPE {
                             if (selected)
                                 ImGui::SetItemDefaultFocus();
                         }
-                    if (ImGui::Selectable("##None", dep.Doc29Prof))
+                    if (ImGui::Selectable("##None", !dep.hasDoc29Profile()))
                         study.Operations.setDoc29Profile(dep, nullptr);
                     ImGui::EndCombo();
                 }

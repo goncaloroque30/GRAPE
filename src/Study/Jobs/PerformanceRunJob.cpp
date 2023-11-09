@@ -10,20 +10,23 @@
 #include "Scenario/Scenario.h"
 
 namespace GRAPE {
-    const RouteOutput& RouteOutputGenerator::getRouteOutput(const Route& Rte) {
+    // Constructors & Destructor (Copy and Move implicitly deleted)
+    RouteOutputGenerator::RouteOutputGenerator(const CoordinateSystem& Cs) : m_Cs(Cs) { m_RouteOutputs.add(nullptr, RouteOutput()); }
+
+    const RouteOutput& RouteOutputGenerator::getRouteOutput(const Route* Rte) {
         // Access the container and check if route output was already calculated
         std::unique_lock lck(m_Mutex);
-        if (m_RouteOutputs.contains(&Rte))
-            return m_RouteOutputs(&Rte);
+        if (Rte == nullptr || m_RouteOutputs.contains(Rte))
+            return m_RouteOutputs(Rte);
         lck.unlock();
 
         // Calculate route output
         RouteCalculator rteCalc(m_Cs);
-        RouteOutput rteOut = rteCalc.calculate(Rte);
+        RouteOutput rteOut = rteCalc.calculate(*Rte);
 
         // Access the container and add the route output if no concurring thread already did
         lck.lock();
-        auto [RteOutput, added] = m_RouteOutputs.add(&Rte, std::move(rteOut));
+        auto [RteOutput, added] = m_RouteOutputs.add(Rte, std::move(rteOut));
         return RteOutput;
     }
 
@@ -58,29 +61,32 @@ namespace GRAPE {
 
         switch (m_PerfRun.PerfRunSpec.FlightsPerformanceMdl)
         {
-        case PerformanceModel::Doc29: m_PerformanceCalculator = std::make_unique<PerformanceCalculatorDoc29>(m_PerfRun.PerfRunSpec); break;
-        default: GRAPE_ASSERT(false);
+        case PerformanceModel::None: m_FlightsCalculator = std::make_unique<PerformanceCalculatorFlight>(m_PerfRun.PerfRunSpec); break;
+        case PerformanceModel::Doc29: m_FlightsCalculator = std::make_unique<PerformanceCalculatorDoc29>(m_PerfRun.PerfRunSpec); break;
+        default: GRAPE_ASSERT(false); break;
         }
+
+        m_Tracks4dCalculator = m_PerfRun.PerfRunSpec.Tracks4dCalculatePerformance ? std::make_unique<PerformanceCalculatorTrack4d>(m_PerfRun.PerfRunSpec) : std::make_unique<PerformanceCalculatorTrack4dEmpty>(m_PerfRun.PerfRunSpec);
 
         // Prepare LTO fuel flow calculations
         for (auto op : m_PerfRun.parentScenario().FlightArrivals)
-            m_PerformanceCalculator->fuelFlowCalculator().addLTOEngine(op.get().aircraft().LTOEng);
+            m_FlightsCalculator->fuelFlowCalculator().addLTOEngine(op.get().aircraft().LTOEng);
 
         for (auto op : m_PerfRun.parentScenario().FlightDepartures)
-            m_PerformanceCalculator->fuelFlowCalculator().addLTOEngine(op.get().aircraft().LTOEng);
+            m_FlightsCalculator->fuelFlowCalculator().addLTOEngine(op.get().aircraft().LTOEng);
 
         for (auto op : m_PerfRun.parentScenario().Track4dArrivals)
-            m_PerformanceCalculator->fuelFlowCalculator().addLTOEngine(op.get().aircraft().LTOEng);
+            m_FlightsCalculator->fuelFlowCalculator().addLTOEngine(op.get().aircraft().LTOEng);
 
         for (auto op : m_PerfRun.parentScenario().Track4dDepartures)
-            m_PerformanceCalculator->fuelFlowCalculator().addLTOEngine(op.get().aircraft().LTOEng);
+            m_FlightsCalculator->fuelFlowCalculator().addLTOEngine(op.get().aircraft().LTOEng);
 
         // Queue Operations
         const auto& perfRunOutput = m_PerfRun.m_PerfRunOutput;
         for (const auto flightArr : m_PerfRun.parentScenario().FlightArrivals)
         {
             m_Tasks.pushTask([&, flightArr] {
-                if (const auto perfOutputOpt = m_PerformanceCalculator->calculate(flightArr, m_RouteOutputs->getRouteOutput(flightArr.get().route())))
+                if (const auto perfOutputOpt = m_FlightsCalculator->calculate(flightArr, m_RouteOutputs->getRouteOutput(flightArr.get().Rte)))
                     perfRunOutput->addArrivalOutput(flightArr, perfOutputOpt.value());
                 ++m_CalculatedCount;
                 });
@@ -89,7 +95,7 @@ namespace GRAPE {
         for (const auto flightDep : m_PerfRun.parentScenario().FlightDepartures)
         {
             m_Tasks.pushTask([&, flightDep] {
-                if (const auto perfOutputOpt = m_PerformanceCalculator->calculate(flightDep, m_RouteOutputs->getRouteOutput(flightDep.get().route())))
+                if (const auto perfOutputOpt = m_FlightsCalculator->calculate(flightDep, m_RouteOutputs->getRouteOutput(flightDep.get().Rte)))
                     perfRunOutput->addDepartureOutput(flightDep, perfOutputOpt.value());
                 ++m_CalculatedCount;
                 });
@@ -99,7 +105,7 @@ namespace GRAPE {
         {
             m_Tasks.pushTask([&, track4dArr] {
                 m_Operations.loadArr(track4dArr);
-                if (const auto perfOutputOpt = m_PerformanceCalculator->calculate(track4dArr))
+                if (const auto perfOutputOpt = m_Tracks4dCalculator->calculate(track4dArr))
                     perfRunOutput->addArrivalOutput(track4dArr, perfOutputOpt.value());
                 m_Operations.unloadArr(track4dArr, true);
                 ++m_CalculatedCount;
@@ -110,7 +116,7 @@ namespace GRAPE {
         {
             m_Tasks.pushTask([&, track4dDep] {
                 m_Operations.loadDep(track4dDep);
-                if (const auto perfOutputOpt = m_PerformanceCalculator->calculate(track4dDep))
+                if (const auto perfOutputOpt = m_Tracks4dCalculator->calculate(track4dDep))
                     perfRunOutput->addDepartureOutput(track4dDep, perfOutputOpt.value());
                 m_Operations.unloadDep(track4dDep, true);
                 ++m_CalculatedCount;
@@ -130,7 +136,7 @@ namespace GRAPE {
         if (m_Status.load() == Status::Running)
         {
             m_Status.store(Status::Finished);
-            Log::study()->info(std::format("Finished performance run '{}' of scenario '{}'. Time elapsed: {:%T}.", m_PerfRun.Name, m_PerfRun.parentScenario().Name, perfRunTimer.ellapsedDuration()));
+            Log::study()->info(std::format("Finished performance run '{}' of scenario '{}'. Time elapsed: {:%T}.", m_PerfRun.Name, m_PerfRun.parentScenario().Name, perfRunTimer.elapsedDuration()));
         }
     }
 
@@ -146,7 +152,8 @@ namespace GRAPE {
 
         m_PerfRun.m_PerfRunOutput->clear();
 
-        m_PerformanceCalculator.reset();
+        m_FlightsCalculator.reset();
+        m_Tracks4dCalculator.reset();
         m_RouteOutputs.reset();
 
         m_TotalCount = 0;

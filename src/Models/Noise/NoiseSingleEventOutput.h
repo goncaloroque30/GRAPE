@@ -29,7 +29,7 @@ namespace GRAPE {
         [[nodiscard]] auto end() const { return m_Values.end(); }
 
         /**
-        * Allocates capcaity of Size to the vector and initializes all valus to Value
+        * Allocates capacity of Size to the vector and initializes all values to Value
         */
         void fill(std::size_t Size, double Value = 0);
 

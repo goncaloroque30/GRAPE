@@ -82,7 +82,7 @@ namespace GRAPE {
         return updated;
     }
 
-    void SFIManager::update(const SFI& Sfi) const noexcept { m_Db.update(Schema::sfi_fuel, std::make_tuple(Sfi.Name, Sfi.A, Sfi.B1, Sfi.B2, Sfi.B3, Sfi.K1, Sfi.K2, Sfi.K3, Sfi.K4), { 0 }, std::make_tuple(Sfi.Name)); }
+    void SFIManager::update(const SFI& Sfi) const noexcept { m_Db.update(Schema::sfi_fuel, std::make_tuple(Sfi.Name, Sfi.MaximumSeaLevelStaticThrust, Sfi.A, Sfi.B1, Sfi.B2, Sfi.B3, Sfi.K1, Sfi.K2, Sfi.K3, Sfi.K4), { 0 }, std::make_tuple(Sfi.Name)); }
 
     void SFIManager::loadFromFile() {
         Statement stmt(m_Db, Schema::sfi_fuel.querySelect());
@@ -92,14 +92,15 @@ namespace GRAPE {
             const std::string name = stmt.getColumn(0);
             auto [sfi, added] = m_SFIFuels.add(name, name);
             GRAPE_ASSERT(added);
-            sfi.A = stmt.getColumn(1);
-            sfi.B1 = stmt.getColumn(2);
-            sfi.B2 = stmt.getColumn(3);
-            sfi.B3 = stmt.getColumn(4);
-            sfi.K1 = stmt.getColumn(5);
-            sfi.K2 = stmt.getColumn(6);
-            sfi.K3 = stmt.getColumn(7);
-            sfi.K4 = stmt.getColumn(8);
+            sfi.MaximumSeaLevelStaticThrust = stmt.getColumn(1);
+            sfi.A = stmt.getColumn(2);
+            sfi.B1 = stmt.getColumn(3);
+            sfi.B2 = stmt.getColumn(4);
+            sfi.B3 = stmt.getColumn(5);
+            sfi.K1 = stmt.getColumn(6);
+            sfi.K2 = stmt.getColumn(7);
+            sfi.K3 = stmt.getColumn(8);
+            sfi.K4 = stmt.getColumn(9);
 
             stmt.step();
         }

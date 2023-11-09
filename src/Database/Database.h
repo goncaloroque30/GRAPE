@@ -50,6 +50,13 @@ namespace GRAPE {
         */
         bool open(const std::filesystem::path& FilePath);
 
+        /**
+        * @brief May be called only once per class instance lifetime. Create new sqlite3 database at FilePath and execute CreateSql.
+        * ASSERT !valid()
+        *
+        * @return True on success.
+        */
+        bool create(const std::filesystem::path& FilePath, const char* CreateSql = nullptr);
 
         /**
         * @brief May be called only once per class instance lifetime. Create new sqlite3 database at FilePath with the contents of Buffer. BufferSize should be the number of bytes in Buffer.
@@ -122,6 +129,16 @@ namespace GRAPE {
         * ASSERT result is SQLITE_OK.
         */
         void execute(const std::string& Query) const;
+
+        /**
+        * @brief Set the SQLite application ID to ID.
+        */
+        void setApplicationId(int Id) const;
+
+        /**
+        * @brief Set the SQLite user version to UserVersion.
+        */
+        void setUserVersion(int UserVersion) const;
 
         /**
         * @brief Insert all values into Tbl

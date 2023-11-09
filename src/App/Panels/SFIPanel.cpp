@@ -43,6 +43,7 @@ namespace GRAPE {
             return;
 
         auto& study = Application::study();
+        const auto& set = Application::settings();
 
         std::function<void()> action = nullptr;
 
@@ -67,9 +68,10 @@ namespace GRAPE {
             ImGui::EndPopup();
         }
 
-        if (UI::beginTable("SFI", 9))
+        if (UI::beginTable("SFI", 10))
         {
             ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_NoHide);
+            ImGui::TableSetupColumn(std::format("Maximum Sea Level Static Thrust ({})", set.ThrustUnits.shortName()).c_str());
             ImGui::TableSetupColumn("A (kg/min/kN)", ImGuiTableColumnFlags_NoHide);
             ImGui::TableSetupColumn("B1 (kg/min/kN)", ImGuiTableColumnFlags_NoHide);
             ImGui::TableSetupColumn("B2 (kg/min/kN)", ImGuiTableColumnFlags_NoHide);
@@ -111,7 +113,14 @@ namespace GRAPE {
                 if (UI::inputText("SFIId", sfi.Name, sfi.Name != sfiId && study.SFIs().contains(sfi.Name), "SFI ID", std::format("SFI ID '{}' already exists in this study", sfi.Name)))
                     if (sfi.Name != sfiId)
                         action = [&] { study.SFIs.updateKey(sfi, sfiId); };
-                if (ImGui::IsItemClicked())
+                if (UI::isItemClicked())
+                    select(sfi);
+
+                // Maximum Sea Level Static Thrust
+                UI::tableNextColumn();
+                if (UI::inputDouble("Maximum sea level static thrust", sfi.MaximumSeaLevelStaticThrust, 1.0, Constants::NaN, set.ThrustUnits, false))
+                    update = true;
+                if (UI::isItemClicked())
                     select(sfi);
 
                 // A
@@ -122,7 +131,7 @@ namespace GRAPE {
                     sfi.A = a / fromMinutes(1.0) / 0.001; // N to kN
                     update = true;
                 }
-                if (ImGui::IsItemClicked())
+                if (UI::isItemClicked())
                     select(sfi);
 
                 // B1
@@ -133,7 +142,7 @@ namespace GRAPE {
                     sfi.B1 = b1 / fromMinutes(1.0) / 0.001; // N to kN
                     update = true;
                 }
-                if (ImGui::IsItemClicked())
+                if (UI::isItemClicked())
                     select(sfi);
 
                 // B2
@@ -144,14 +153,14 @@ namespace GRAPE {
                     sfi.B2 = b2 / fromMinutes(1.0) / 0.001; // N to kN
                     update = true;
                 }
-                if (ImGui::IsItemClicked())
+                if (UI::isItemClicked())
                     select(sfi);
 
                 // B3
                 UI::tableNextColumn();
                 if (UI::inputDouble("B3", sfi.B3, 2))
                     update = true;
-                if (ImGui::IsItemClicked())
+                if (UI::isItemClicked())
                     select(sfi);
 
                 // K1
@@ -162,7 +171,7 @@ namespace GRAPE {
                     sfi.K1 = k1 / fromMinutes(1.0) / 0.001; // N to kN
                     update = true;
                 }
-                if (ImGui::IsItemClicked())
+                if (UI::isItemClicked())
                     select(sfi);
 
                 // K2
@@ -173,7 +182,7 @@ namespace GRAPE {
                     sfi.K2 = k2 / fromMinutes(1.0) / 0.001; // N to kN
                     update = true;
                 }
-                if (ImGui::IsItemClicked())
+                if (UI::isItemClicked())
                     select(sfi);
 
                 // K3
@@ -184,7 +193,7 @@ namespace GRAPE {
                     sfi.K3 = k3 / fromMinutes(1.0) / 0.001 / fromFeet(1.0); // N to kN
                     update = true;
                 }
-                if (ImGui::IsItemClicked())
+                if (UI::isItemClicked())
                     select(sfi);
 
                 // K4
@@ -195,7 +204,7 @@ namespace GRAPE {
                     sfi.K4 = k4 / fromMinutes(1.0) / 0.001 / fromPoundsOfForce(1.0); // N to kN
                     update = true;
                 }
-                if (ImGui::IsItemClicked())
+                if (UI::isItemClicked())
                     select(sfi);
 
                 if (update)

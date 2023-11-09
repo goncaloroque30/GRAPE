@@ -8,13 +8,13 @@
 
 namespace GRAPE {
     void Constraints::aircraftBlockDoc29Acft(const Aircraft& Acft) {
-        if (Acft.Doc29Perf)
-            m_NrDoc29Aircraft.block(*Acft.Doc29Perf, Acft);
+        if (Acft.Doc29Acft)
+            m_NrDoc29Aircraft.block(*Acft.Doc29Acft, Acft);
     }
 
     void Constraints::aircraftUnblockDoc29Acft(const Aircraft& Acft) {
-        if (Acft.Doc29Perf)
-            m_NrDoc29Aircraft.unblock(*Acft.Doc29Perf, Acft);
+        if (Acft.Doc29Acft)
+            m_NrDoc29Aircraft.unblock(*Acft.Doc29Acft, Acft);
     }
 
     void Constraints::aircraftBlockDoc29Noise(const Aircraft& Acft) {
@@ -66,24 +66,30 @@ namespace GRAPE {
     void Constraints::operationUnblockAircraft(Operation& Op) { m_NrAircrafts.unblock(Op.aircraft(), Op); }
 
     void Constraints::operationBlockRoute(const Flight& Op) {
+        if (!Op.hasRoute())
+            return;
+
         m_NrAirports.block(Op.route().parentAirport(), Op);
         m_NrRunways.block(Op.route().parentRunway(), Op);
         m_NrRoutes.block(Op.route(), Op);
     }
 
     void Constraints::operationUnblockRoute(const Flight& Op) {
+        if (!Op.hasRoute())
+            return;
+
         m_NrAirports.unblock(Op.route().parentAirport(), Op);
         m_NrRunways.unblock(Op.route().parentRunway(), Op);
         m_NrRoutes.unblock(Op.route(), Op);
     }
 
     void Constraints::operationBlockDoc29Profile(const Flight& Op) {
-        if (Op.doc29ProfileSelected())
+        if (Op.hasDoc29Profile())
             m_NrDoc29Profiles.block(*Op.doc29Profile(), Op);
     }
 
     void Constraints::operationUnblockDoc29Profile(const Flight& Op) {
-        if (Op.doc29ProfileSelected())
+        if (Op.hasDoc29Profile())
             m_NrDoc29Profiles.unblock(*Op.doc29Profile(), Op);
     }
 
@@ -250,13 +256,17 @@ namespace GRAPE {
     }
 
     void Constraints::performanceRunBlock(const Flight& Op, const PerformanceRun& PerfRun) {
-        const auto& opRte = Op.route();
-        m_NeAirports.block(opRte.parentAirport(), PerfRun);
-        m_NeRunways.block(opRte.parentRunway(), PerfRun);
-        m_NeRoutes.block(opRte, PerfRun);
+        if (Op.hasRoute())
+        {
+            const auto& opRte = Op.route();
+            m_NeAirports.block(opRte.parentAirport(), PerfRun);
+            m_NeRunways.block(opRte.parentRunway(), PerfRun);
+            m_NeRoutes.block(opRte, PerfRun);
+        }
+
         m_NeAircrafts.block(Op.aircraft(), PerfRun);
-        if (Op.aircraft().Doc29Perf)
-            m_NeDoc29Aircrafts.block(*Op.aircraft().Doc29Perf, PerfRun);
+        if (Op.aircraft().Doc29Acft)
+            m_NeDoc29Aircrafts.block(*Op.aircraft().Doc29Acft, PerfRun);
         if (Op.aircraft().SFIFuel)
             m_NeSFI.block(*Op.aircraft().SFIFuel, PerfRun);
         if (Op.aircraft().LTOEng)
@@ -274,13 +284,17 @@ namespace GRAPE {
     }
 
     void Constraints::performanceRunUnblock(const Flight& Op, const PerformanceRun& PerfRun) {
-        const auto& opRte = Op.route();
-        m_NeAirports.unblock(opRte.parentAirport(), PerfRun);
-        m_NeRunways.unblock(opRte.parentRunway(), PerfRun);
-        m_NeRoutes.unblock(opRte, PerfRun);
+        if (Op.hasRoute())
+        {
+            const auto& opRte = Op.route();
+            m_NeAirports.unblock(opRte.parentAirport(), PerfRun);
+            m_NeRunways.unblock(opRte.parentRunway(), PerfRun);
+            m_NeRoutes.unblock(opRte, PerfRun);
+        }
+
         m_NeAircrafts.unblock(Op.aircraft(), PerfRun);
-        if (Op.aircraft().Doc29Perf)
-            m_NeDoc29Aircrafts.unblock(*Op.aircraft().Doc29Perf, PerfRun);
+        if (Op.aircraft().Doc29Acft)
+            m_NeDoc29Aircrafts.unblock(*Op.aircraft().Doc29Acft, PerfRun);
         if (Op.aircraft().SFIFuel)
             m_NeSFI.unblock(*Op.aircraft().SFIFuel, PerfRun);
         if (Op.aircraft().LTOEng)

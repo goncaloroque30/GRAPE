@@ -11,7 +11,40 @@
 
 namespace GRAPE {
     namespace {
-        auto allValues(const Flight& Op) { return std::make_tuple(Op.Name, Op.route().parentAirport().Name, Op.route().parentRunway().Name, OperationTypes.toString(Op.operationType()), Op.route().Name, timeToUtcString(Op.Time), Op.Count, Op.aircraft().Name, Op.Weight); }
+        void bindFlight(Statement& Stmt, const Flight& Op) {
+            Stmt.bind(0, Op.Name);
+            Stmt.bind(1, OperationTypes.toString(Op.operationType()));
+            if (Op.hasRoute())
+            {
+                Stmt.bind(2, Op.route().parentAirport().Name);
+                Stmt.bind(3, Op.route().parentRunway().Name);
+                Stmt.bind(4, Op.route().Name);
+            }
+            else
+            {
+                Stmt.bind(2, std::monostate());
+                Stmt.bind(3, std::monostate());
+                Stmt.bind(4, std::monostate());
+            }
+            Stmt.bind(5, timeToUtcString(Op.Time));
+            Stmt.bind(6, Op.Count);
+            Stmt.bind(7, Op.aircraft().Name);
+            Stmt.bind(8, Op.Weight);
+        }
+
+        void insertFlight(const Database& Db, const Flight& Op) {
+            Statement stmt(Db, Schema::operations_flights.queryInsert({}));
+            bindFlight(stmt, Op);
+            stmt.step();
+        }
+
+        void updateFlight(const Database& Db, const Flight& Op) {
+            Statement stmt(Db, Schema::operations_flights.queryUpdate({}, { 0, 1 }));
+            bindFlight(stmt, Op);
+            stmt.bind(9, Op.Name);
+            stmt.bind(10, OperationTypes.toString(Op.operationType()));
+            stmt.step();
+        }
 
         auto allValues(const Track4d& Op) { return std::make_tuple(Op.Name, OperationTypes.toString(Op.operationType()), timeToUtcString(Op.Time), Op.Count, Op.aircraft().Name); }
 
@@ -66,49 +99,23 @@ namespace GRAPE {
 
     OperationsManager::OperationsManager(const Database& Db, Constraints& Blocks, AircraftsManager& Aircrafts, AirportsManager& Airports) : Manager(Db, Blocks), Tracks4dLoader(Db), m_Aircrafts(Aircrafts), m_Airports(Airports) {}
 
-    std::pair<FlightArrival&, bool> OperationsManager::addArrivalFlight(const RouteArrival& RouteIn, const Aircraft& AircraftIn, const std::string& Name) {
-        const std::string newName = Name.empty() ? uniqueKeyGenerator(m_FlightArrivals, "New Arrival Flight") : Name;
-
-        auto ret = m_FlightArrivals.add(newName, newName, RouteIn, AircraftIn);
+    std::pair<FlightArrival&, bool> OperationsManager::addArrivalFlight(const std::string& Name, const Aircraft& AircraftIn) {
+        auto ret = m_FlightArrivals.add(Name, Name, AircraftIn);
         auto& [op, added] = ret;
 
         if (added)
         {
-            m_Db.insert(Schema::operations_flights, {}, allValues(op));
+            insertFlight(m_Db, op);
             OperationUpdater up(m_Db, op);
             m_Blocks.operationBlock(op);
         }
-        else { Log::dataLogic()->error("Adding arrival flight '{}'. Arrival flight already exists in this study.", newName); }
+        else { Log::dataLogic()->error("Adding arrival flight '{}'. Arrival flight already exists in this study.", Name); }
 
         return ret;
     }
 
     bool OperationsManager::addArrivalFlight(const std::string& Name) {
         const std::string newName = Name.empty() ? uniqueKeyGenerator(m_FlightArrivals, "New Arrival Flight") : Name;
-
-        const RouteArrival* arrRte = nullptr;
-
-        for (const auto& apt : m_Airports)
-        {
-            for (const auto& rwy : apt.Runways | std::views::values)
-            {
-                for (const auto& rte : rwy.ArrivalRoutes | std::views::values)
-                {
-                    arrRte = rte.get();
-                    break;
-                }
-                if (arrRte)
-                    break;
-            }
-            if (arrRte)
-                break;
-        }
-
-        if (!arrRte)
-        {
-            Log::dataLogic()->error("Adding arrival flight '{}'. No arrival routes were found in this study.", newName);
-            return false;
-        }
 
         const Aircraft* acft = m_Aircrafts().empty() ? nullptr : &m_Aircrafts.aircrafts().begin()->second;
 
@@ -118,53 +125,27 @@ namespace GRAPE {
             return false;
         }
 
-        auto [newArr, added] = addArrivalFlight(*arrRte, *acft, newName);
+        auto [newArr, added] = addArrivalFlight(newName, *acft);
         return added;
     }
 
-    std::pair<FlightDeparture&, bool> OperationsManager::addDepartureFlight(const RouteDeparture& RouteIn, const Aircraft& AircraftIn, const std::string& Name) {
-        const std::string newName = Name.empty() ? uniqueKeyGenerator(m_FlightDepartures, "New Departure Flight") : Name;
-
-        auto ret = m_FlightDepartures.add(newName, newName, RouteIn, AircraftIn);
+    std::pair<FlightDeparture&, bool> OperationsManager::addDepartureFlight(const std::string& Name, const Aircraft& AircraftIn) {
+        auto ret = m_FlightDepartures.add(Name, Name, AircraftIn);
         auto& [op, added] = ret;
 
         if (added)
         {
-            m_Db.insert(Schema::operations_flights, {}, allValues(op));
+            insertFlight(m_Db, op);
             OperationUpdater up(m_Db, op);
             m_Blocks.operationBlock(op);
         }
-        else { Log::dataLogic()->error("Adding departure flight '{}'. Departure flight already exists in this study.", newName); }
+        else { Log::dataLogic()->error("Adding departure flight '{}'. Departure flight already exists in this study.", Name); }
 
         return ret;
     }
 
     bool OperationsManager::addDepartureFlight(const std::string& Name) {
         const std::string newName = Name.empty() ? uniqueKeyGenerator(m_FlightDepartures, "New Departure Flight") : Name;
-
-        const RouteDeparture* depRte = nullptr;
-
-        for (const auto& apt : m_Airports)
-        {
-            for (const auto& rwy : apt.Runways | std::views::values)
-            {
-                for (const auto& rte : rwy.DepartureRoutes | std::views::values)
-                {
-                    depRte = rte.get();
-                    break;
-                }
-                if (depRte)
-                    break;
-            }
-            if (depRte)
-                break;
-        }
-
-        if (!depRte)
-        {
-            Log::dataLogic()->error("Adding departure flight '{}'. No departure routes were found in this study.", newName);
-            return false;
-        }
 
         const Aircraft* acft = m_Aircrafts().empty() ? nullptr : &m_Aircrafts.aircrafts().begin()->second;
 
@@ -174,14 +155,12 @@ namespace GRAPE {
             return false;
         }
 
-        auto [newDep, added] = addDepartureFlight(*depRte, *acft, newName);
+        auto [newDep, added] = addDepartureFlight(newName, *acft);
         return added;
     }
 
-    std::pair<Track4dArrival&, bool> OperationsManager::addArrivalTrack4d(const Aircraft& AircraftIn, const std::string& Name) {
-        const std::string newName = Name.empty() ? uniqueKeyGenerator(m_Track4dArrivals, "New Arrival Track4D") : Name;
-
-        auto ret = m_Track4dArrivals.add(newName, newName, AircraftIn);
+    std::pair<Track4dArrival&, bool> OperationsManager::addArrivalTrack4d(const std::string& Name, const Aircraft& AircraftIn) {
+        auto ret = m_Track4dArrivals.add(Name, Name, AircraftIn);
         auto& [op, added] = ret;
 
         if (added)
@@ -190,7 +169,7 @@ namespace GRAPE {
             OperationUpdater up(m_Db, op);
             m_Blocks.operationBlock(op);
         }
-        else { Log::dataLogic()->error("Adding arrival track 4D '{}'. Arrival track 4D already exists in this study.", newName); }
+        else { Log::dataLogic()->error("Adding arrival track 4D '{}'. Arrival track 4D already exists in this study.", Name); }
 
         return ret;
     }
@@ -206,13 +185,11 @@ namespace GRAPE {
             return false;
         }
 
-        auto [newDep, added] = addArrivalTrack4d(*acft, newName);
+        auto [newDep, added] = addArrivalTrack4d(newName, *acft);
         return added;
     }
 
-    std::pair<Track4dDeparture&, bool> OperationsManager::addDepartureTrack4d(const Aircraft& AircraftIn, const std::string& Name) {
-        const std::string newName = Name.empty() ? uniqueKeyGenerator(m_Track4dArrivals, "New Arrival Track4D") : Name;
-
+    std::pair<Track4dDeparture&, bool> OperationsManager::addDepartureTrack4d(const std::string& Name, const Aircraft& AircraftIn) {
         auto ret = m_Track4dDepartures.add(Name, Name, AircraftIn);
         auto& [op, added] = ret;
 
@@ -222,7 +199,7 @@ namespace GRAPE {
             OperationUpdater up(m_Db, op);
             m_Blocks.operationBlock(op);
         }
-        else { Log::dataLogic()->error("Adding departure track 4D '{}'. Operation already exists in this study.", newName); }
+        else { Log::dataLogic()->error("Adding departure track 4D '{}'. Operation already exists in this study.", Name); }
 
         return ret;
     }
@@ -238,19 +215,19 @@ namespace GRAPE {
             return false;
         }
 
-        auto [newDep, added] = addDepartureTrack4d(*acft, newName);
+        auto [newDep, added] = addDepartureTrack4d(newName, *acft);
         return added;
     }
 
-    FlightArrival& OperationsManager::addArrivalFlightE(const RouteArrival& RouteIn, const Aircraft& AircraftIn, const std::string& Name) {
+    FlightArrival& OperationsManager::addArrivalFlightE(const std::string& Name, const Aircraft& AircraftIn) {
         if (Name.empty())
             throw GrapeException("Empty flight name not allowed.");
 
-        auto [op, added] = m_FlightArrivals.add(Name, Name, RouteIn, AircraftIn);
+        auto [op, added] = m_FlightArrivals.add(Name, Name, AircraftIn);
 
         if (added)
         {
-            m_Db.insert(Schema::operations_flights, {}, allValues(op));
+            insertFlight(m_Db, op);
             OperationUpdater up(m_Db, op);
             m_Blocks.operationBlock(op);
         }
@@ -259,15 +236,15 @@ namespace GRAPE {
         return op;
     }
 
-    FlightDeparture& OperationsManager::addDepartureFlightE(const RouteDeparture& RouteIn, const Aircraft& AircraftIn, const std::string& Name) {
+    FlightDeparture& OperationsManager::addDepartureFlightE(const std::string& Name, const Aircraft& AircraftIn) {
         if (Name.empty())
             throw GrapeException("Empty flight name not allowed.");
 
-        auto [op, added] = m_FlightDepartures.add(Name, Name, RouteIn, AircraftIn);
+        auto [op, added] = m_FlightDepartures.add(Name, Name, AircraftIn);
 
         if (added)
         {
-            m_Db.insert(Schema::operations_flights, {}, allValues(op));
+            insertFlight(m_Db, op);
             OperationUpdater up(m_Db, op);
             m_Blocks.operationBlock(op);
         }
@@ -276,7 +253,7 @@ namespace GRAPE {
         return op;
     }
 
-    Track4dArrival& OperationsManager::addArrivalTrack4dE(const Aircraft& AircraftIn, const std::string& Name) {
+    Track4dArrival& OperationsManager::addArrivalTrack4dE(const std::string& Name, const Aircraft& AircraftIn) {
         if (Name.empty())
             throw GrapeException("Empty track 4D name not allowed.");
 
@@ -293,7 +270,7 @@ namespace GRAPE {
         return op;
     }
 
-    Track4dDeparture& OperationsManager::addDepartureTrack4dE(const Aircraft& AircraftIn, const std::string& Name) {
+    Track4dDeparture& OperationsManager::addDepartureTrack4dE(const std::string& Name, const Aircraft& AircraftIn) {
         if (Name.empty())
             throw GrapeException("Empty track 4D name not allowed.");
 
@@ -331,14 +308,14 @@ namespace GRAPE {
         OperationUpdater up(m_Db, Op);
     }
 
-    void OperationsManager::setRoute(FlightArrival& Op, const RouteArrival& Rte) const {
+    void OperationsManager::setRoute(FlightArrival& Op, const RouteArrival* Rte) const {
         m_Blocks.operationUnblockRoute(Op);
         Op.setRoute(Rte);
         m_Blocks.operationBlockRoute(Op);
         OperationUpdater up(m_Db, Op);
     }
 
-    void OperationsManager::setRoute(FlightDeparture& Op, const RouteDeparture& Rte) const {
+    void OperationsManager::setRoute(FlightDeparture& Op, const RouteDeparture* Rte) const {
         m_Blocks.operationUnblockRoute(Op);
         Op.setRoute(Rte);
         m_Blocks.operationBlockRoute(Op);
@@ -368,7 +345,7 @@ namespace GRAPE {
                 return false;
             }
 
-            m_Db.deleteD(Schema::operations_flights, { 0, 3 }, std::make_tuple(op.Name, OperationTypes.toString(op.operationType())));
+            m_Db.deleteD(Schema::operations_flights, { 0, 1 }, std::make_tuple(op.Name, OperationTypes.toString(op.operationType())));
             m_Blocks.operationUnblock(op);
 
             return true;
@@ -384,7 +361,7 @@ namespace GRAPE {
                 return false;
             }
 
-            m_Db.deleteD(Schema::operations_flights, { 0, 3 }, primaryKey(op));
+            m_Db.deleteD(Schema::operations_flights, { 0, 1 }, primaryKey(op));
             m_Blocks.operationUnblock(op);
 
             return true;
@@ -430,7 +407,7 @@ namespace GRAPE {
             return;
         }
 
-        m_Db.deleteD(Schema::operations_flights, { 0, 3 }, primaryKey(Op));
+        m_Db.deleteD(Schema::operations_flights, { 0, 1 }, primaryKey(Op));
         m_Blocks.operationUnblock(Op);
 
         m_FlightArrivals.erase(Op.Name);
@@ -443,7 +420,7 @@ namespace GRAPE {
             return;
         }
 
-        m_Db.deleteD(Schema::operations_flights, { 0, 3 }, primaryKey(Op));
+        m_Db.deleteD(Schema::operations_flights, { 0, 1 }, primaryKey(Op));
         m_Blocks.operationUnblock(Op);
 
         m_FlightDepartures.erase(Op.Name);
@@ -485,7 +462,7 @@ namespace GRAPE {
 
         const bool updated = m_FlightArrivals.update(Id, Op.Name);
 
-        if (updated) { m_Db.update(Schema::operations_flights, { 0 }, std::make_tuple(Op.Name), { 0, 3 }, std::make_tuple(Id, OperationTypes.toString(Op.operationType()))); }
+        if (updated) { m_Db.update(Schema::operations_flights, { 0 }, std::make_tuple(Op.Name), { 0, 1 }, std::make_tuple(Id, OperationTypes.toString(Op.operationType()))); }
         else
         {
             Log::dataLogic()->error("Updating arrival flight operation '{}'. Operation new name '{}' already exists in this study.", Id, Op.Name);
@@ -505,7 +482,7 @@ namespace GRAPE {
 
         const bool updated = m_FlightDepartures.update(Id, Op.Name);
 
-        if (updated) { m_Db.update(Schema::operations_flights, { 0 }, std::make_tuple(Op.Name), { 0, 3 }, std::make_tuple(Id, OperationTypes.toString(Op.operationType()))); }
+        if (updated) { m_Db.update(Schema::operations_flights, { 0 }, std::make_tuple(Op.Name), { 0, 1 }, std::make_tuple(Id, OperationTypes.toString(Op.operationType()))); }
         else
         {
             Log::dataLogic()->error("Updating departure flight operation '{}'. Operation new name '{}' already exists in this study.", Id, Op.Name);
@@ -565,22 +542,22 @@ namespace GRAPE {
     void OperationUpdater::visitFlightArrival(const FlightArrival& Op) {
         m_Db.deleteD(Schema::operations_flights_arrival, { 0, 1 }, primaryKey(Op));
         m_Db.deleteD(Schema::operations_flights_departure, { 0, 1 }, primaryKey(Op));
-        m_Db.update(Schema::operations_flights, allValues(Op), { 0, 3 }, primaryKey(Op));
+        updateFlight(m_Db, Op);
 
         Statement stmt(m_Db, Schema::operations_flights_arrival.queryInsert());
         stmt.bindValues(primaryKey(Op));
-        Op.doc29ProfileSelected() ? stmt.bind(2, Op.Doc29Prof->Name) : stmt.bind(2, std::monostate());
+        Op.hasDoc29Profile() ? stmt.bind(2, Op.Doc29Prof->Name) : stmt.bind(2, std::monostate());
         stmt.step();
     }
 
     void OperationUpdater::visitFlightDeparture(const FlightDeparture& Op) {
         m_Db.deleteD(Schema::operations_flights_arrival, { 0, 1 }, primaryKey(Op));
         m_Db.deleteD(Schema::operations_flights_departure, { 0, 1 }, primaryKey(Op));
-        m_Db.update(Schema::operations_flights, allValues(Op), { 0, 3 }, primaryKey(Op));
+        updateFlight(m_Db, Op);
 
         Statement stmt(m_Db, Schema::operations_flights_departure.queryInsert());
         stmt.bindValues(primaryKey(Op));
-        Op.doc29ProfileSelected() ? stmt.bind(2, Op.Doc29Prof->Name) : stmt.bind(2, std::monostate());
+        Op.hasDoc29Profile() ? stmt.bind(2, Op.Doc29Prof->Name) : stmt.bind(2, std::monostate());
         stmt.bind(3, Op.ThrustPercentageTakeoff);
         stmt.bind(4, Op.ThrustPercentageClimb);
         stmt.step();
@@ -598,17 +575,14 @@ namespace GRAPE {
             while (stmtFl.hasRow())
             {
                 const std::string name = stmtFl.getColumn(0);
-                const std::string aptName = stmtFl.getColumn(1);
-                const std::string rwyName = stmtFl.getColumn(2);
-                const std::string opName = stmtFl.getColumn(3);
+                const std::string opName = stmtFl.getColumn(1);
                 const OperationType op = OperationTypes.fromString(opName);
-                const std::string rteName = stmtFl.getColumn(4);
                 TimePoint taiTime = std::chrono::round<Duration>(std::chrono::tai_clock::now());
                 const auto taiTimeOpt = utcStringToTime(stmtFl.getColumn(5));
                 if (taiTimeOpt)
                     taiTime = taiTimeOpt.value();
                 else
-                    Log::database()->warn("Loading flight '{}'. Invalid time.");
+                    Log::database()->warn("Loading flight '{}'. Invalid time.", name);
 
                 double count = stmtFl.getColumn(6);
                 const Aircraft& acft = m_Aircrafts(stmtFl.getColumn(7));
@@ -617,8 +591,18 @@ namespace GRAPE {
                 {
                 case OperationType::Arrival:
                     {
-                        const RouteArrival& rte = *m_Airports(aptName).Runways(rwyName).ArrivalRoutes(rteName);
-                        auto [flightArr, added] = m_FlightArrivals.add(name, name, rte, acft, taiTime, count, weight);
+
+                        auto [flightArr, added] = m_FlightArrivals.add(name, name, acft);
+                        if (!stmtFl.isColumnNull(2) && !stmtFl.isColumnNull(3) && !stmtFl.isColumnNull(4))
+                        {
+                            const std::string aptName = stmtFl.getColumn(2);
+                            const std::string rwyName = stmtFl.getColumn(3);
+                            const std::string rteName = stmtFl.getColumn(4);
+                            flightArr.setRoute(m_Airports(aptName).Runways(rwyName).ArrivalRoutes(rteName).get());
+                        }
+                        flightArr.Time = taiTime;
+                        flightArr.Count = count;
+                        flightArr.Weight = weight;
 
                         Statement stmtArr(m_Db, Schema::operations_flights_arrival.querySelect({ 2 }, { 0, 1 }));
                         stmtArr.bindValues(primaryKey(flightArr));
@@ -626,26 +610,35 @@ namespace GRAPE {
                         if (stmtArr.hasRow() && !stmtArr.isColumnNull(0))
                         {
                             const std::string doc29Prof = stmtArr.getColumn(0);
-                            if (!flightArr.aircraft().validDoc29Performance())
+                            if (flightArr.aircraft().validDoc29Performance())
+                            {
+                                const auto& doc29Acft = *flightArr.aircraft().Doc29Acft;
+                                if (doc29Acft.ArrivalProfiles.contains(doc29Prof))
+                                    flightArr.Doc29Prof = &*doc29Acft.ArrivalProfiles(doc29Prof);
+                                else
+                                    Log::database()->warn("Loading arrival flight '{}'. Doc29 Performance ID '{}' selected for fleet ID '{}' does not contain arrival profile '{}'.", flightArr.Name, doc29Acft.Name, flightArr.aircraft().Name, doc29Prof);
+                            }
+                            else
                             {
                                 Log::database()->warn("Loading arrival flight '{}'. Fleet ID '{}' has no valid Doc29 Performance ID but a Doc29 Profile was provided ({}). It will be ignored.", flightArr.Name, flightArr.aircraft().Name, doc29Prof);
-                                break;
                             }
-                            const auto& doc29Acft = *flightArr.aircraft().Doc29Perf;
-                            if (!doc29Acft.ArrivalProfiles.contains(doc29Prof))
-                            {
-                                Log::database()->warn("Loading arrival flight '{}'. Doc29 Performance ID '{}' selected for fleet ID '{}' does not contain arrival profile '{}'.", flightArr.Name, doc29Acft.Name, flightArr.aircraft().Name, doc29Prof);
-                                break;
-                            }
-                            flightArr.Doc29Prof = &*doc29Acft.ArrivalProfiles(doc29Prof);
                         }
                         m_Blocks.operationBlock(flightArr);
                         break;
                     }
                 case OperationType::Departure:
                     {
-                        const RouteDeparture& rte = *m_Airports(aptName).Runways(rwyName).DepartureRoutes(rteName);
-                        auto [flightDep, added] = m_FlightDepartures.add(name, name, rte, acft, taiTime, count, weight);
+                        auto [flightDep, added] = m_FlightDepartures.add(name, name, acft);
+                        if (!stmtFl.isColumnNull(2) && !stmtFl.isColumnNull(3) && !stmtFl.isColumnNull(4))
+                        {
+                            const std::string aptName = stmtFl.getColumn(2);
+                            const std::string rwyName = stmtFl.getColumn(3);
+                            const std::string rteName = stmtFl.getColumn(4);
+                            flightDep.setRoute(m_Airports(aptName).Runways(rwyName).DepartureRoutes(rteName).get());
+                        }
+                        flightDep.Time = taiTime;
+                        flightDep.Count = count;
+                        flightDep.Weight = weight;
 
                         Statement stmtDep(m_Db, Schema::operations_flights_departure.querySelect({ 2, 3, 4 }, { 0, 1 }));
                         stmtDep.bindValues(primaryKey(flightDep));
@@ -655,18 +648,18 @@ namespace GRAPE {
                             if (!stmtDep.isColumnNull(0))
                             {
                                 const std::string doc29Prof = stmtDep.getColumn(0);
-                                if (!flightDep.aircraft().validDoc29Performance())
+                                if (flightDep.aircraft().validDoc29Performance())
+                                {
+                                    const auto& doc29Acft = *flightDep.aircraft().Doc29Acft;
+                                    if (doc29Acft.DepartureProfiles.contains(doc29Prof))
+                                        flightDep.Doc29Prof = &*doc29Acft.DepartureProfiles(doc29Prof);
+                                    else
+                                        Log::database()->warn("Loading departure flight '{}'. Doc29 Performance ID '{}' selected for fleet ID '{}' does not contain departure profile '{}'.", flightDep.Name, doc29Acft.Name, flightDep.aircraft().Name, doc29Prof);
+                                }
+                                else
                                 {
                                     Log::database()->warn("Loading departure flight '{}'. Fleet ID '{}' has no valid Doc29 Performance ID but a Doc29 Profile was provided ({}). It will be ignored.", flightDep.Name, flightDep.aircraft().Name, doc29Prof);
-                                    break;
                                 }
-                                const auto& doc29Acft = *flightDep.aircraft().Doc29Perf;
-                                if (!doc29Acft.DepartureProfiles.contains(doc29Prof))
-                                {
-                                    Log::database()->warn("Loading departure flight '{}'. Doc29 Performance ID '{}' selected for fleet ID '{}' does not contain departure profile '{}'.", flightDep.Name, doc29Acft.Name, flightDep.aircraft().Name, doc29Prof);
-                                    break;
-                                }
-                                flightDep.Doc29Prof = &*doc29Acft.DepartureProfiles(doc29Prof);
                             }
                             flightDep.ThrustPercentageTakeoff = stmtDep.getColumn(1);
                             flightDep.ThrustPercentageClimb = stmtDep.getColumn(2);

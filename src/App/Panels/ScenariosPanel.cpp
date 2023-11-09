@@ -591,11 +591,9 @@ namespace GRAPE {
                     operationFlightRow(arr);
 
                     // Doc29 Profile
-                    if (arr.doc29ProfileSelected())
-                    {
-                        UI::tableNextColumn(false);
+                    UI::tableNextColumn(false);
+                    if (arr.hasDoc29Profile())
                         UI::textInfo(arr.Doc29Prof->Name);
-                    }
 
                     ImGui::PopID(); // Arrival ID
                 }
@@ -632,11 +630,9 @@ namespace GRAPE {
                     operationFlightRow(dep);
 
                     // Doc29 Profile
-                    if (dep.doc29ProfileSelected())
-                    {
-                        UI::tableNextColumn(false);
+                    UI::tableNextColumn(false);
+                    if (dep.hasDoc29Profile())
                         UI::textInfo(dep.Doc29Prof->Name);
-                    }
 
                     ImGui::PopID(); // Departure ID
                 }
@@ -739,17 +735,26 @@ namespace GRAPE {
             UI::tableNextColumn(false);
             UI::textInfo(OperationTypes.toString(Op.operationType()));
 
-            // Airport
-            UI::tableNextColumn(false);
-            UI::textInfo(Op.route().parentAirport().Name);
+            if (Op.hasRoute())
+            {
+                // Airport
+                UI::tableNextColumn(false);
+                UI::textInfo(Op.route().parentAirport().Name);
 
-            // Runway
-            UI::tableNextColumn(false);
-            UI::textInfo(Op.route().parentRunway().Name);
+                // Runway
+                UI::tableNextColumn(false);
+                UI::textInfo(Op.route().parentRunway().Name);
 
-            // Route
-            UI::tableNextColumn(false);
-            UI::textInfo(Op.route().Name);
+                // Route
+                UI::tableNextColumn(false);
+                UI::textInfo(Op.route().Name);
+            }
+            else
+            {
+                UI::tableNextColumn(false);
+                UI::tableNextColumn(false);
+                UI::tableNextColumn(false);
+            }
 
             // Fleet Aircraft
             UI::tableNextColumn(false);
@@ -1134,30 +1139,41 @@ namespace GRAPE {
         {
             ImGui::BeginDisabled(!perfRun.job()->ready());
 
-            // Minimum point count
+            // Calculate Tracks 4D
             ImGui::AlignTextToFramePadding();
-            ImGui::TextDisabled("Minimum number of points:");
+            ImGui::TextDisabled("Run performance:");
             ImGui::SameLine();
-            ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
-            if (UI::inputInt("Minimum tracks 4d points", perfRun.PerfRunSpec.Tracks4dMinimumPoints, 1, std::numeric_limits<int>::max()))
+            if (ImGui::Checkbox("##RunPerformance", &perfRun.PerfRunSpec.Tracks4dCalculatePerformance))
                 updated = true;
 
-            // Recalculations
-            ImGui::TextDisabled("Recalculate cumulative ground distance:");
-            ImGui::SameLine();
-            if (ImGui::Checkbox("##RecalculateCumulativeGroundDistance", &perfRun.PerfRunSpec.Tracks4dRecalculateCumulativeGroundDistance))
-                updated = true;
+            if (perfRun.PerfRunSpec.Tracks4dCalculatePerformance)
+            {
+                ImGui::Separator();
 
-            ImGui::TextDisabled("Recalculate ground speed:");
-            ImGui::SameLine();
-            if (ImGui::Checkbox("##RecalculateGroundspeed", &perfRun.PerfRunSpec.Tracks4dRecalculateGroundspeed))
-                updated = true;
+                // Minimum point count
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextDisabled("Minimum number of points:");
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
+                if (UI::inputInt("Minimum tracks 4d points", perfRun.PerfRunSpec.Tracks4dMinimumPoints, 1, std::numeric_limits<int>::max()))
+                    updated = true;
 
-            ImGui::TextDisabled("Recalculate fuel flow:");
-            ImGui::SameLine();
-            if (ImGui::Checkbox("##RecalculateFuelFlow", &perfRun.PerfRunSpec.Tracks4dRecalculateFuelFlow))
-                updated = true;
+                // Recalculations
+                ImGui::TextDisabled("Recalculate cumulative ground distance:");
+                ImGui::SameLine();
+                if (ImGui::Checkbox("##RecalculateCumulativeGroundDistance", &perfRun.PerfRunSpec.Tracks4dRecalculateCumulativeGroundDistance))
+                    updated = true;
 
+                ImGui::TextDisabled("Recalculate ground speed:");
+                ImGui::SameLine();
+                if (ImGui::Checkbox("##RecalculateGroundspeed", &perfRun.PerfRunSpec.Tracks4dRecalculateGroundspeed))
+                    updated = true;
+
+                ImGui::TextDisabled("Recalculate fuel flow:");
+                ImGui::SameLine();
+                if (ImGui::Checkbox("##RecalculateFuelFlow", &perfRun.PerfRunSpec.Tracks4dRecalculateFuelFlow))
+                    updated = true;
+            }
             ImGui::EndDisabled(); // Performance run job past ready
         }
 
@@ -1167,7 +1183,7 @@ namespace GRAPE {
 
             ImGui::AlignTextToFramePadding();
             ImGui::TextDisabled("Model:");
-            ImGui::SameLine(0.0f, style.ItemSpacing.x);
+            ImGui::SameLine();
             ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
             if (ImGui::BeginCombo("##FuelFlowModel", FuelFlowModelTypes.toString(perfRun.PerfRunSpec.FuelFlowMdl).c_str()))
             {
@@ -1181,6 +1197,15 @@ namespace GRAPE {
                     }
                 }
                 ImGui::EndCombo();
+            }
+
+            if (perfRun.PerfRunSpec.FuelFlowMdl == FuelFlowModel::LTO || perfRun.PerfRunSpec.FuelFlowMdl == FuelFlowModel::LTODoc9889)
+            {
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextDisabled("Altitude Correction:");
+                ImGui::SameLine();
+                if (ImGui::Checkbox("##FuelFlowLTOAltitudeCorrection", &perfRun.PerfRunSpec.FuelFlowLTOAltitudeCorrection))
+                    updated = true;
             }
             ImGui::EndDisabled(); // Performance run job past ready
         }
@@ -1983,6 +2008,7 @@ namespace GRAPE {
         if (ImGui::CollapsingHeader("Models"))
         {
             ImGui::BeginDisabled(!emiRun.job()->ready());
+
             ImGui::AlignTextToFramePadding();
             ImGui::TextDisabled("Emissions:");
             ImGui::SameLine();
@@ -2000,67 +2026,48 @@ namespace GRAPE {
                 }
                 ImGui::EndCombo();
             }
-            ImGui::EndDisabled(); // Emissions job past ready
-        }
 
-        if (ImGui::CollapsingHeader("Settings"))
-        {
-            ImGui::BeginDisabled(!emiRun.job()->ready());
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextDisabled("Calculate gas emissions:");
+            ImGui::SameLine();
+            if (ImGui::Checkbox("##CalculateGasEmissions", &emiRun.EmissionsRunSpec.CalculateGasEmissions))
+                updated = true;
 
+            if (emiRun.EmissionsRunSpec.CalculateGasEmissions)
             {
-                ImGui::Separator();
                 ImGui::AlignTextToFramePadding();
-                ImGui::TextDisabled("Altitude Filter");
-                ImGui::SameLine(0.0f, style.ItemSpacing.x * 2.0f);
-                if (ImGui::Button("Reset##Altitude"))
-                {
-                    emiRun.EmissionsRunSpec.FilterMinimumAltitude = -Constants::Inf;
-                    emiRun.EmissionsRunSpec.FilterMaximumAltitude = Constants::Inf;
-                    updated = true;
-                }
-
-                ImGui::AlignTextToFramePadding();
-                ImGui::TextDisabled("Minimum:");
+                ImGui::TextDisabled("Use BFFM 2 to correct EIs:");
                 ImGui::SameLine();
-                ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
-                if (UI::inputDouble("Minimum altitude", emiRun.EmissionsRunSpec.FilterMinimumAltitude, Constants::NaN, emiRun.EmissionsRunSpec.FilterMaximumAltitude, set.AltitudeUnits))
-                    updated = true;
-                ImGui::SameLine();
-                ImGui::AlignTextToFramePadding();
-                ImGui::TextDisabled("Maximum:");
-                ImGui::SameLine();
-                ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
-                if (UI::inputDouble("Maximum altitude", emiRun.EmissionsRunSpec.FilterMaximumAltitude, emiRun.EmissionsRunSpec.FilterMinimumAltitude, Constants::NaN, set.AltitudeUnits))
+                if (ImGui::Checkbox("##UseBFFM2", &emiRun.EmissionsRunSpec.BFFM2Model))
                     updated = true;
             }
 
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextDisabled("Calculate particle emissions:");
+            ImGui::SameLine();
+            if (ImGui::Checkbox("##CalculateParticleEmissions", &emiRun.EmissionsRunSpec.CalculateParticleEmissions))
+                updated = true;
+
+            if (emiRun.EmissionsRunSpec.CalculateParticleEmissions)
             {
-                ImGui::Separator();
                 ImGui::AlignTextToFramePadding();
-                ImGui::TextDisabled("Cumulative Ground Distance Filter");
-                ImGui::SameLine(0.0f, style.ItemSpacing.x * 2.0f);
-                if (ImGui::Button("Reset##Distance"))
+                ImGui::TextDisabled("Smoke Number to nvPM EI:");
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
+                if (ImGui::BeginCombo("##SmokeNumbernvPMEI", EmissionsParticleSmokeNumberModelTypes.toString(emiRun.EmissionsRunSpec.ParticleSmokeNumberModel).c_str()))
                 {
-                    emiRun.EmissionsRunSpec.FilterMinimumCumulativeGroundDistance = -Constants::Inf;
-                    emiRun.EmissionsRunSpec.FilterMaximumCumulativeGroundDistance = Constants::Inf;
-                    updated = true;
+                    for (const auto& particleMdlStr : EmissionsParticleSmokeNumberModelTypes)
+                    {
+                        const bool selected = emiRun.EmissionsRunSpec.ParticleSmokeNumberModel == EmissionsParticleSmokeNumberModelTypes.fromString(particleMdlStr);
+                        if (ImGui::Selectable(particleMdlStr, selected) && !selected)
+                        {
+                            emiRun.EmissionsRunSpec.ParticleSmokeNumberModel = EmissionsParticleSmokeNumberModelTypes.fromString(particleMdlStr);
+                            updated = true;
+                        }
+                    }
+                    ImGui::EndCombo();
                 }
-
-                ImGui::AlignTextToFramePadding();
-                ImGui::TextDisabled("Minimum:");
-                ImGui::SameLine();
-                ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
-                if (UI::inputDouble("Minimum cumulative ground distance", emiRun.EmissionsRunSpec.FilterMinimumCumulativeGroundDistance, Constants::NaN, emiRun.EmissionsRunSpec.FilterMaximumCumulativeGroundDistance, set.DistanceUnits))
-                    updated = true;
-                ImGui::SameLine();
-                ImGui::AlignTextToFramePadding();
-                ImGui::TextDisabled("Maximum:");
-                ImGui::SameLine();
-                ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
-                if (UI::inputDouble("Maximum cumulative ground distance", emiRun.EmissionsRunSpec.FilterMaximumCumulativeGroundDistance, emiRun.EmissionsRunSpec.FilterMinimumCumulativeGroundDistance, Constants::NaN, set.DistanceUnits))
-                    updated = true;
             }
-
             ImGui::Separator();
 
             ImGui::AlignTextToFramePadding();
@@ -2072,12 +2079,360 @@ namespace GRAPE {
             ImGui::EndDisabled(); // Emissions job past ready
         }
 
+        if (ImGui::CollapsingHeader("Settings"))
+        {
+            ImGui::BeginDisabled(!emiRun.job()->ready());
+
+            if (emiRun.EmissionsRunSpec.EmissionsMdl == EmissionsModel::LTOCycle)
+            {
+                ImGui::PushID("LTOCycle");
+                ImGui::TextDisabled("LTO Cycle Times");
+
+                const float offset = ImGui::CalcTextSize("Approach:").x;
+
+                ImGui::AlignTextToFramePadding();
+                UI::textInfo("Idle:");
+                ImGui::SameLine(offset, style.ItemSpacing.x);
+                ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
+                if (UI::inputDouble("Idle", emiRun.EmissionsRunSpec.LTOCycle.at(0), 0.0, Constants::NaN, 0, "s"))
+                    updated = true;
+
+                ImGui::AlignTextToFramePadding();
+                UI::textInfo("Approach:");
+                ImGui::SameLine(offset, style.ItemSpacing.x);
+                ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
+                if (UI::inputDouble("Approach", emiRun.EmissionsRunSpec.LTOCycle.at(1), 0.0, Constants::NaN, 0, "s"))
+                    updated = true;
+
+                ImGui::AlignTextToFramePadding();
+                UI::textInfo("Climb Out:");
+                ImGui::SameLine(offset, style.ItemSpacing.x);
+                ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
+                if (UI::inputDouble("ClimbOut", emiRun.EmissionsRunSpec.LTOCycle.at(2), 0.0, Constants::NaN, 0, "s"))
+                    updated = true;
+
+                ImGui::AlignTextToFramePadding();
+                UI::textInfo("Takeoff:");
+                ImGui::SameLine(offset, style.ItemSpacing.x);
+                ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
+                if (UI::inputDouble("Takeoff", emiRun.EmissionsRunSpec.LTOCycle.at(3), 0.0, Constants::NaN, 0, "s"))
+                    updated = true;
+
+                ImGui::PopID(); // LTOCycle
+            }
+            else
+            {
+                {
+                    ImGui::AlignTextToFramePadding();
+                    ImGui::TextDisabled("Altitude Filter");
+                    ImGui::SameLine(0.0f, style.ItemSpacing.x * 2.0f);
+                    if (ImGui::Button("Reset##Altitude"))
+                    {
+                        emiRun.EmissionsRunSpec.FilterMinimumAltitude = -Constants::Inf;
+                        emiRun.EmissionsRunSpec.FilterMaximumAltitude = Constants::Inf;
+                        updated = true;
+                    }
+
+                    ImGui::AlignTextToFramePadding();
+                    ImGui::TextDisabled("Minimum:");
+                    ImGui::SameLine();
+                    ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
+                    if (UI::inputDouble("Minimum altitude", emiRun.EmissionsRunSpec.FilterMinimumAltitude, Constants::NaN, emiRun.EmissionsRunSpec.FilterMaximumAltitude, set.AltitudeUnits))
+                        updated = true;
+                    ImGui::SameLine();
+                    ImGui::AlignTextToFramePadding();
+                    ImGui::TextDisabled("Maximum:");
+                    ImGui::SameLine();
+                    ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
+                    if (UI::inputDouble("Maximum altitude", emiRun.EmissionsRunSpec.FilterMaximumAltitude, emiRun.EmissionsRunSpec.FilterMinimumAltitude, Constants::NaN, set.AltitudeUnits))
+                        updated = true;
+                }
+
+                {
+                    ImGui::Separator();
+                    ImGui::AlignTextToFramePadding();
+                    ImGui::TextDisabled("Cumulative Ground Distance Filter");
+                    ImGui::SameLine(0.0f, style.ItemSpacing.x * 2.0f);
+                    if (ImGui::Button("Reset##Distance"))
+                    {
+                        emiRun.EmissionsRunSpec.FilterMinimumCumulativeGroundDistance = -Constants::Inf;
+                        emiRun.EmissionsRunSpec.FilterMaximumCumulativeGroundDistance = Constants::Inf;
+                        updated = true;
+                    }
+
+                    ImGui::AlignTextToFramePadding();
+                    ImGui::TextDisabled("Minimum:");
+                    ImGui::SameLine();
+                    ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
+                    if (UI::inputDouble("Minimum cumulative ground distance", emiRun.EmissionsRunSpec.FilterMinimumCumulativeGroundDistance, Constants::NaN, emiRun.EmissionsRunSpec.FilterMaximumCumulativeGroundDistance, set.DistanceUnits))
+                        updated = true;
+                    ImGui::SameLine();
+                    ImGui::AlignTextToFramePadding();
+                    ImGui::TextDisabled("Maximum:");
+                    ImGui::SameLine();
+                    ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
+                    if (UI::inputDouble("Maximum cumulative ground distance", emiRun.EmissionsRunSpec.FilterMaximumCumulativeGroundDistance, emiRun.EmissionsRunSpec.FilterMinimumCumulativeGroundDistance, Constants::NaN, set.DistanceUnits))
+                        updated = true;
+                }
+            }
+
+            if (emiRun.EmissionsRunSpec.CalculateParticleEmissions)
+            {
+                ImGui::PushID("Particles");
+                ImGui::Separator();
+
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextDisabled("Particle Effective Density:");
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
+                if (UI::inputDouble("ParticleEffectiveDensity", emiRun.EmissionsRunSpec.ParticleEffectiveDensity, Constants::Precision, Constants::NaN, 0, "kg/m3"))
+                    updated = true;
+
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextDisabled("Particle Geometric Standard Deviation:");
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
+                if (UI::inputDouble("ParticleGeometricStandardDeviation", emiRun.EmissionsRunSpec.ParticleGeometricStandardDeviation, Constants::Precision, Constants::NaN, 2))
+                    updated = true;
+
+                const float offset = ImGui::CalcTextSize("Approach:").x;
+                ImGui::TextDisabled("Particle Geometric Mean Diameter");
+
+                {
+                    ImGui::AlignTextToFramePadding();
+                    UI::textInfo("Idle:");
+                    ImGui::SameLine(offset, style.ItemSpacing.x);
+                    ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
+                    double valNm = emiRun.EmissionsRunSpec.ParticleGeometricMeanDiameter.at(0) * 1e9;
+                    if (UI::inputDouble("Idle", valNm, Constants::Precision, Constants::NaN, 0, "nm"))
+                    {
+                        emiRun.EmissionsRunSpec.ParticleGeometricMeanDiameter.at(0) = valNm * 1e-9;
+                        updated = true;
+                    }
+                }
+
+                {
+                    ImGui::AlignTextToFramePadding();
+                    UI::textInfo("Approach:");
+                    ImGui::SameLine(offset, style.ItemSpacing.x);
+                    ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
+                    double valNm = emiRun.EmissionsRunSpec.ParticleGeometricMeanDiameter.at(1) * 1e9;
+                    if (UI::inputDouble("Approach", valNm, Constants::Precision, Constants::NaN, 0, "nm"))
+                    {
+                        emiRun.EmissionsRunSpec.ParticleGeometricMeanDiameter.at(1) = valNm * 1e-9;
+                        updated = true;
+                    }
+                }
+
+                {
+                    ImGui::AlignTextToFramePadding();
+                    UI::textInfo("Climb Out:");
+                    ImGui::SameLine(offset, style.ItemSpacing.x);
+                    ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
+                    double valNm = emiRun.EmissionsRunSpec.ParticleGeometricMeanDiameter.at(2) * 1e9;
+                    if (UI::inputDouble("Climb Out", valNm, Constants::Precision, Constants::NaN, 0, "nm"))
+                    {
+                        emiRun.EmissionsRunSpec.ParticleGeometricMeanDiameter.at(2) = valNm * 1e-9;
+                        updated = true;
+                    }
+                }
+
+                {
+                    ImGui::AlignTextToFramePadding();
+                    UI::textInfo("Takeoff:");
+                    ImGui::SameLine(offset, style.ItemSpacing.x);
+                    ImGui::SetNextItemWidth(UI::g_StandardItemWidth);
+                    double valNm = emiRun.EmissionsRunSpec.ParticleGeometricMeanDiameter.at(3) * 1e9;
+                    if (UI::inputDouble("Takeoff", valNm, Constants::Precision, Constants::NaN, 0, "nm"))
+                    {
+                        emiRun.EmissionsRunSpec.ParticleGeometricMeanDiameter.at(3) = valNm * 1e-9;
+                        updated = true;
+                    }
+                }
+
+                ImGui::PopID(); // Particles
+            }
+
+            ImGui::EndDisabled(); // Emissions job past ready
+        }
+
         // Output
         if (emiRun.job()->finished())
         {
             ImGui::Separator();
 
+            if (ImGui::CollapsingHeader("Output Totals"))
+            {
+                // Filter
+                static UI::TextFilter filter;
+                filter.draw();
+
+                if (UI::buttonEditRight(ICON_FA_DOWNLOAD " .csv"))
+                {
+                    auto [path, open] = UI::saveCsvFile(std::format("{} Emissions Total Output", emiRun.Name).c_str());
+                    if (open)
+                        Application::get().queueAsyncTask([&, path] { IO::CSV::exportEmissionsRunOutput(emiRun.output(), path); }, std::format("Exporting emissions run output to '{}'", path));
+                }
+
+
+                if (UI::beginTable("EmissionsOutput", 9))
+                {
+                    ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_NoHide);
+                    ImGui::TableSetupColumn("Operation", ImGuiTableColumnFlags_NoHide);
+                    ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_NoHide);
+                    ImGui::TableSetupColumn(std::format("Fuel ({})", set.EmissionsWeightUnits.shortName()).c_str());
+                    ImGui::TableSetupColumn(std::format("HC ({})", set.EmissionsWeightUnits.shortName()).c_str());
+                    ImGui::TableSetupColumn(std::format("CO ({})", set.EmissionsWeightUnits.shortName()).c_str());
+                    ImGui::TableSetupColumn(std::format("NOx ({})", set.EmissionsWeightUnits.shortName()).c_str());
+                    ImGui::TableSetupColumn(std::format("nvPM Mass ({})", set.EmissionsWeightUnits.shortName()).c_str());
+                    ImGui::TableSetupColumn("nvPM Number (#)");
+
+                    ImGui::TableSetupScrollFreeze(0, 1);
+                    ImGui::TableHeadersRow();
+
+                    // Totals
+                    ImGui::TableNextRow();
+                    const auto& emissionTotals = emiRun.output().totalEmissions();
+
+                    UI::tableNextColumn(false);
+                    UI::textInfo("Totals");
+
+                    UI::tableNextColumn(false); // Operation
+                    UI::tableNextColumn(false); // Type
+
+                    // Fuel
+                    UI::tableNextColumn(false);
+                    UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(emiRun.output().totalFuel()), set.EmissionsWeightUnits.decimals()));
+
+                    // HC
+                    UI::tableNextColumn(false);
+                    UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(emissionTotals.HC), set.EmissionsWeightUnits.decimals()));
+
+                    // CO
+                    UI::tableNextColumn(false);
+                    UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(emissionTotals.CO), set.EmissionsWeightUnits.decimals()));
+
+                    // NOx
+                    UI::tableNextColumn(false);
+                    UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(emissionTotals.NOx), set.EmissionsWeightUnits.decimals()));
+
+                    // nvPM
+                    UI::tableNextColumn(false);
+                    UI::textInfo(std::format("{0:.3f}", toMilligramsPerKilogram(emissionTotals.nvPM)));
+
+                    // nvPM number
+                    UI::tableNextColumn(false);
+                    UI::textInfo(std::format("{0:.3e}", emissionTotals.nvPMNumber));
+
+                    // Arrival Operations
+                    for (const auto& op : emiRun.parentPerformanceRun().output().arrivalOutputs())
+                    {
+                        auto& arrOp = op.get();
+                        if (!filter.passesFilter(arrOp.Name))
+                            continue;
+
+                        ImGui::TableNextRow();
+                        ImGui::PushID(arrOp.Name.c_str());
+
+                        UI::tableNextColumn(false);
+
+                        // Name
+                        UI::textInfo(arrOp.Name);
+
+                        // Operation
+                        UI::tableNextColumn(false);
+                        UI::textInfo(OperationTypes.toString(arrOp.operationType()));
+
+                        // Type
+                        UI::tableNextColumn(false);
+                        UI::textInfo(Operation::Types.toString(arrOp.type()));
+
+                        const auto& opOut = emiRun.output().operationOutput(arrOp);
+
+                        // Fuel
+                        UI::tableNextColumn(false);
+                        UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(opOut.totalFuel()), set.EmissionsWeightUnits.decimals()));
+
+                        // HC
+                        UI::tableNextColumn(false);
+                        UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(opOut.totalEmissions().HC), set.EmissionsWeightUnits.decimals()));
+
+                        // CO
+                        UI::tableNextColumn(false);
+                        UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(opOut.totalEmissions().CO), set.EmissionsWeightUnits.decimals()));
+
+                        // NOx
+                        UI::tableNextColumn(false);
+                        UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(opOut.totalEmissions().NOx), set.EmissionsWeightUnits.decimals()));
+
+                        // nvPM
+                        UI::tableNextColumn(false);
+                        UI::textInfo(std::format("{0:.3f}", toMilligramsPerKilogram(opOut.totalEmissions().nvPM)));
+
+                        // nvPM number
+                        UI::tableNextColumn(false);
+                        UI::textInfo(std::format("{0:.3e}", opOut.totalEmissions().nvPMNumber));
+
+                        ImGui::PopID(); // Arrival ID
+                    }
+
+                    // Departure Operations
+                    for (const auto& op : emiRun.parentPerformanceRun().output().departureOutputs())
+                    {
+                        auto& depOp = op.get();
+                        if (!filter.passesFilter(depOp.Name))
+                            continue;
+
+                        ImGui::TableNextRow();
+                        ImGui::PushID(depOp.Name.c_str());
+
+                        UI::tableNextColumn(false);
+
+                        // Name
+                        UI::textInfo(depOp.Name);
+
+                        // Operation
+                        UI::tableNextColumn(false);
+                        UI::textInfo(OperationTypes.toString(depOp.operationType()));
+
+                        // Type
+                        UI::tableNextColumn(false);
+                        UI::textInfo(Operation::Types.toString(depOp.type()));
+
+                        const auto& opOut = emiRun.output().operationOutput(depOp);
+
+                        // Fuel
+                        UI::tableNextColumn(false);
+                        UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(opOut.totalFuel()), set.EmissionsWeightUnits.decimals()));
+
+                        // HC
+                        UI::tableNextColumn(false);
+                        UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(opOut.totalEmissions().HC), set.EmissionsWeightUnits.decimals()));
+
+                        // CO
+                        UI::tableNextColumn(false);
+                        UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(opOut.totalEmissions().CO), set.EmissionsWeightUnits.decimals()));
+
+                        // NOx
+                        UI::tableNextColumn(false);
+                        UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(opOut.totalEmissions().NOx), set.EmissionsWeightUnits.decimals()));
+
+                        // nvPM
+                        UI::tableNextColumn(false);
+                        UI::textInfo(std::format("{0:.3f}", toMilligramsPerKilogram(opOut.totalEmissions().nvPM)));
+
+                        // nvPM number
+                        UI::tableNextColumn(false);
+                        UI::textInfo(std::format("{0:.3e}", opOut.totalEmissions().nvPMNumber));
+
+                        ImGui::PopID(); // Departure ID
+                    }
+                    UI::endTable();
+                }
+            }
+
             if (emiRun.EmissionsRunSpec.SaveSegmentResults)
+            {
                 if (ImGui::CollapsingHeader("Output Segments"))
                 {
                     ImGui::BeginChild("Operations", ImVec2(-ImGui::GetContentRegionAvail().x * UI::g_StandardLeftAlignFraction, 0.0f));
@@ -2185,149 +2540,6 @@ namespace GRAPE {
                     if (m_SelectedEmissionsSegmentOutput)
                         drawSelectedEmissionsSegmentOutput();
                     ImGui::EndChild();
-                }
-
-            if (ImGui::CollapsingHeader("Output Totals"))
-            {
-                // Filter
-                static UI::TextFilter filter;
-                filter.draw();
-
-                if (UI::buttonEditRight(ICON_FA_DOWNLOAD " .csv"))
-                {
-                    auto [path, open] = UI::saveCsvFile(std::format("{} Emissions Total Output", emiRun.Name).c_str());
-                    if (open)
-                        Application::get().queueAsyncTask([&, path] { IO::CSV::exportEmissionsRunOutput(emiRun.output(), path); }, std::format("Exporting emissions run output to '{}'", path));
-                }
-
-
-                if (UI::beginTable("EmissionsOutput", 7))
-                {
-                    ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_NoHide);
-                    ImGui::TableSetupColumn("Operation", ImGuiTableColumnFlags_NoHide);
-                    ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_NoHide);
-                    ImGui::TableSetupColumn(std::format("Fuel ({})", set.EmissionsWeightUnits.shortName()).c_str());
-                    ImGui::TableSetupColumn(std::format("HC ({})", set.EmissionsWeightUnits.shortName()).c_str());
-                    ImGui::TableSetupColumn(std::format("CO ({})", set.EmissionsWeightUnits.shortName()).c_str());
-                    ImGui::TableSetupColumn(std::format("NOx ({})", set.EmissionsWeightUnits.shortName()).c_str());
-
-                    ImGui::TableSetupScrollFreeze(0, 1);
-                    ImGui::TableHeadersRow();
-
-                    // Totals
-                    ImGui::TableNextRow();
-                    const auto& emissionTotals = emiRun.output().totalEmissions();
-
-                    UI::tableNextColumn(false);
-                    UI::textInfo("Totals");
-
-                    UI::tableNextColumn(false); // Operation
-                    UI::tableNextColumn(false); // Type
-
-                    // Fuel
-                    UI::tableNextColumn(false);
-                    UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(emiRun.output().totalFuel()), set.EmissionsWeightUnits.decimals()));
-
-                    // HC
-                    UI::tableNextColumn(false);
-                    UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(emissionTotals.HC), set.EmissionsWeightUnits.decimals()));
-
-                    // CO
-                    UI::tableNextColumn(false);
-                    UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(emissionTotals.CO), set.EmissionsWeightUnits.decimals()));
-
-                    // NOx
-                    UI::tableNextColumn(false);
-                    UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(emissionTotals.NOx), set.EmissionsWeightUnits.decimals()));
-
-                    // Arrival Operations
-                    for (const auto& op : emiRun.parentPerformanceRun().output().arrivalOutputs())
-                    {
-                        auto& arrOp = op.get();
-                        if (!filter.passesFilter(arrOp.Name))
-                            continue;
-
-                        ImGui::TableNextRow();
-                        ImGui::PushID(arrOp.Name.c_str());
-
-                        UI::tableNextColumn(false);
-
-                        // Name
-                        UI::textInfo(arrOp.Name);
-
-                        // Operation
-                        UI::tableNextColumn(false);
-                        UI::textInfo(OperationTypes.toString(arrOp.operationType()));
-
-                        // Type
-                        UI::tableNextColumn(false);
-                        UI::textInfo(Operation::Types.toString(arrOp.type()));
-
-                        const auto& opOut = emiRun.output().operationOutput(arrOp);
-
-                        // Fuel
-                        UI::tableNextColumn(false);
-                        UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(opOut.totalFuel()), set.EmissionsWeightUnits.decimals()));
-
-                        // HC
-                        UI::tableNextColumn(false);
-                        UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(opOut.totalEmissions().HC), set.EmissionsWeightUnits.decimals()));
-
-                        // CO
-                        UI::tableNextColumn(false);
-                        UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(opOut.totalEmissions().CO), set.EmissionsWeightUnits.decimals()));
-
-                        // NOx
-                        UI::tableNextColumn(false);
-                        UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(opOut.totalEmissions().NOx), set.EmissionsWeightUnits.decimals()));
-
-                        ImGui::PopID(); // Arrival ID
-                    }
-
-                    // Departure Operations
-                    for (const auto& op : emiRun.parentPerformanceRun().output().departureOutputs())
-                    {
-                        auto& depOp = op.get();
-                        if (!filter.passesFilter(depOp.Name))
-                            continue;
-
-                        ImGui::TableNextRow();
-                        ImGui::PushID(depOp.Name.c_str());
-
-                        UI::tableNextColumn(false);
-
-                        // Name
-                        UI::textInfo(depOp.Name);
-
-                        // Operation
-                        UI::tableNextColumn(false);
-                        UI::textInfo(OperationTypes.toString(depOp.operationType()));
-
-                        // Type
-                        UI::tableNextColumn(false);
-                        UI::textInfo(Operation::Types.toString(depOp.type()));
-
-                        const auto& opOut = emiRun.output().operationOutput(depOp);
-
-                        // Fuel
-                        UI::tableNextColumn(false);
-                        UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(opOut.totalFuel()), set.EmissionsWeightUnits.decimals()));
-
-                        // HC
-                        UI::tableNextColumn(false);
-                        UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(opOut.totalEmissions().HC), set.EmissionsWeightUnits.decimals()));
-
-                        // CO
-                        UI::tableNextColumn(false);
-                        UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(opOut.totalEmissions().CO), set.EmissionsWeightUnits.decimals()));
-
-                        // NOx
-                        UI::tableNextColumn(false);
-                        UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(opOut.totalEmissions().NOx), set.EmissionsWeightUnits.decimals()));
-
-                        ImGui::PopID(); // Departure ID
-                    }
-                    UI::endTable();
                 }
             }
         }
@@ -2800,18 +3012,24 @@ namespace GRAPE {
         GRAPE_ASSERT(m_SelectedEmissionsRun);
         GRAPE_ASSERT(m_SelectedEmissionsSegmentOutput);
 
+        const auto& emiRun = *m_SelectedEmissionsRun;
         const EmissionsOperationOutput& emiOut = *m_SelectedEmissionsSegmentOutput;
         const auto& emiSegOutVec = emiOut.segmentOutput();
 
         const Settings& set = Application::settings();
 
-        if (UI::beginTable("Emissions Output", 5))
+        if (UI::beginTable("Emissions Output", 7))
         {
-            ImGui::TableSetupColumn("Segment Number", ImGuiTableColumnFlags_NoHide);
+            if (emiRun.EmissionsRunSpec.EmissionsMdl == EmissionsModel::LTOCycle)
+                ImGui::TableSetupColumn("LTO Phase", ImGuiTableColumnFlags_NoHide);
+            else
+                ImGui::TableSetupColumn("Segment Number", ImGuiTableColumnFlags_NoHide);
             ImGui::TableSetupColumn(std::format("Fuel ({})", set.EmissionsWeightUnits.shortName()).c_str());
             ImGui::TableSetupColumn(std::format("HC ({})", set.EmissionsWeightUnits.shortName()).c_str());
             ImGui::TableSetupColumn(std::format("CO ({})", set.EmissionsWeightUnits.shortName()).c_str());
             ImGui::TableSetupColumn(std::format("NOx ({})", set.EmissionsWeightUnits.shortName()).c_str());
+            ImGui::TableSetupColumn(std::format("nvPM Mass ({})", set.EmissionsWeightUnits.shortName()).c_str());
+            ImGui::TableSetupColumn("nvPM Number (#)");
             ImGui::TableSetupScrollFreeze(0, 1);
             ImGui::TableHeadersRow();
 
@@ -2825,9 +3043,12 @@ namespace GRAPE {
 
                     ImGui::TableNextRow();
 
-                    // Segment Number
+                    // LTO Phase / Segment Number
                     UI::tableNextColumn(false);
-                    UI::textInfo(std::format("{}", segOut.Index));
+                    if (emiRun.EmissionsRunSpec.EmissionsMdl == EmissionsModel::LTOCycle)
+                        UI::textInfo(LTOPhases.Strings.at(segOut.Index));
+                    else
+                        UI::textInfo(std::format("{}", segOut.Index));
 
                     // Fuel
                     UI::tableNextColumn(false);
@@ -2844,6 +3065,14 @@ namespace GRAPE {
                     // NOx
                     UI::tableNextColumn(false);
                     UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(segOut.Emissions.NOx), set.EmissionsWeightUnits.decimals()));
+
+                    // nvPM
+                    UI::tableNextColumn(false);
+                    UI::textInfo(std::format("{0:.3f}", toMilligramsPerKilogram(segOut.Emissions.nvPM), set.EmissionsWeightUnits.decimals()));
+
+                    // nvPM number
+                    UI::tableNextColumn(false);
+                    UI::textInfo(std::format("{0:.3e}", segOut.Emissions.nvPMNumber));
                 }
             }
             UI::endTable();

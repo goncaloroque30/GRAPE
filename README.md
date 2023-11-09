@@ -14,10 +14,10 @@
 
 The software currently only supports Windows.
 
-1. Start by [downloading the latest release to your machine](https://github.com/goncaloroque30/GRAPE/releases/latest/download/GRAPE.zip).
+1. Start by [downloading the latest release to your machine](https://github.com/goncaloroque30/GRAPE/releases/latest/GRAPE.zip).
 2. Unzip the downloaded file.
 3. Start GRAPE.exe in the unzipped folder.
-4. Example studies are provided in the ´examples´ folder.
+4. Example studies are provided in the `examples` folder.
 5. [Read the documentation](https://goncaloroque30.github.io/GRAPE-Docs/) for a description of the tool and its features.
 
 ---

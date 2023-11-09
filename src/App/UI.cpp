@@ -55,6 +55,13 @@ namespace GRAPE::UI {
         ImGui::PopStyleColor();
     }
 
+    // Unformatted wrapped text with info color
+    void textInfoWrapped(const std::string& Text) {
+        ImGui::PushStyleColor(ImGuiCol_Text, g_ExtraColors[GrapeColInfoText]);
+        ImGui::TextWrapped(Text.c_str());
+        ImGui::PopStyleColor();
+    }
+
     // Unformatted text with invalid text style
     void textInvalid(const std::string& Text) {
         pushInvalidTextStyle();
@@ -313,7 +320,7 @@ namespace GRAPE::UI {
      * Provides an editable number with optional limits and units
      */
     bool inputDouble(std::string_view TooltipText, double& Value, double Minimum, double Maximum, bool NotNull, std::size_t Decimals, std::string_view Suffix) {
-        std::string valStr = std::format("{0:.{1}f}", Value, Decimals);
+        std::string valStr = std::isnan(Value) ? "" : std::format("{0:.{1}f}", Value, Decimals);
         valStr.append(" ").append(Suffix);
         bool edited = false;
         MinMaxCallback minMax = { Minimum, Maximum };
@@ -372,6 +379,50 @@ namespace GRAPE::UI {
     bool inputDouble(std::string_view TooltipText, double& Value, double Minimum, double Maximum, std::string_view Suffix) { return inputDouble(TooltipText, Value, Minimum, Maximum, true, 6, Suffix); }
 
     bool inputDouble(std::string_view TooltipText, double& Value, double Minimum, double Maximum, std::size_t Decimals, std::string_view Suffix) { return inputDouble(TooltipText, Value, Minimum, Maximum, true, Decimals, Suffix); }
+
+    bool inputDoubleScientific(std::string_view TooltipText, double& Value, double Minimum, double Maximum, bool NotNull, std::size_t Decimals, std::string_view Suffix) {
+        std::string valStr = std::isnan(Value) ? "" : std::format("{0:.{1}e}", Value, Decimals);
+        bool edited = false;
+        MinMaxCallback minMax = { Minimum, Maximum };
+        ImGui::InputText(std::format("##{}", TooltipText).c_str(), &valStr, ImGuiInputTextFlags_CharsScientific | ImGuiInputTextFlags_CallbackAlways, inputDoubleCallback, &minMax);
+        if (ImGui::IsItemDeactivatedAfterEdit())
+            try
+        {
+            if (!NotNull && valStr.empty())
+            {
+                Value = Constants::NaN;
+                edited = true;
+            }
+            else
+            {
+                const double newVal = std::stod(valStr);
+                if (!std::isnan(Minimum) && newVal < Minimum)
+                    throw std::out_of_range("");
+
+                if (!std::isnan(Maximum) && newVal > Maximum)
+                    throw std::out_of_range("");
+
+                Value = newVal;
+                edited = true;
+            }
+        }
+        catch (const std::logic_error&) {}
+
+        if (minMax.InvalidTextStyle)
+            popInvalidTextStyle();
+
+        if (minMax.InvalidTextStyle && ImGui::IsItemHovered())
+        {
+            if (!std::isnan(Minimum) && !std::isnan(Maximum))
+                ImGui::SetTooltip("%s", std::format("{0} must be between {1:.{3}e} and {2:.{3}e}", TooltipText, Minimum, Maximum, Decimals).c_str());
+            else if (!std::isnan(Minimum))
+                ImGui::SetTooltip("%s", std::format("{0} must be higher than {1:.{2}e}", TooltipText, Minimum, Decimals).c_str());
+            else if (!std::isnan(Maximum))
+                ImGui::SetTooltip("%s", std::format("{0} must be lower than {1:.{2}e}", TooltipText, Maximum, Decimals).c_str());
+        }
+
+        return edited;
+    }
 
     bool inputInt(const std::string& TooltipText, int& Value, int Minimum, int Maximum, const std::string& Suffix) {
         std::string valStr = std::format("{}", Value);

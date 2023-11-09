@@ -19,7 +19,7 @@ namespace GRAPE {
         [[nodiscard]] auto begin() const { return m_OperationOutputs.begin(); }
         [[nodiscard]] auto end() const { return m_OperationOutputs.end(); }
 
-        [[nodiscard]] const EmissionsRun& parentFuelEmissionsRun() const;
+        [[nodiscard]] const EmissionsRun& parentEmissionsRun() const;
         [[nodiscard]] const PerformanceRun& parentPerformanceRun() const;
         [[nodiscard]] const Scenario& parentScenario() const;
 
@@ -27,6 +27,10 @@ namespace GRAPE {
         [[nodiscard]] const EmissionValues& totalEmissions() const { return m_TotalEmissions; }
         [[nodiscard]] const EmissionsOperationOutput& operationOutput(const Operation& Op) const;
         [[nodiscard]] const EmissionsOperationOutput operationOutputWithSegments(const Operation& Op) const;
+
+        // Status Checks (Not thread Safe)
+        [[nodiscard]] std::size_t size() const { return m_OperationOutputs.size(); }
+        [[nodiscard]] bool empty() const { return m_OperationOutputs.empty(); }
 
         // Change Data (Thread Safe)
         void createOutput() const;

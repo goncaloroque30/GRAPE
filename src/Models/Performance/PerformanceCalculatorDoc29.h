@@ -2,13 +2,13 @@
 
 #pragma once
 
-#include "Performance/PerformanceCalculator.h"
+#include "Performance/PerformanceCalculatorFlight.h"
 
 namespace GRAPE {
     /**
     * @brief Calculates the PerformanceOutput of arrival and departure flights with the Doc29 performance model.
     */
-    class PerformanceCalculatorDoc29 : public PerformanceCalculator {
+    class PerformanceCalculatorDoc29 : public PerformanceCalculatorFlight {
     public:
         explicit PerformanceCalculatorDoc29(const PerformanceSpecification& Spec);
 

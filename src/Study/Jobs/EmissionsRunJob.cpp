@@ -7,7 +7,9 @@
 #include "Constraints.h"
 
 #include "Aircraft/Aircraft.h"
+#include "Emissions/EmissionsCalculatorLTOCycle.h"
 #include "Emissions/EmissionsCalculatorLTO.h"
+#include "Emissions/EmissionsCalculatorBFFM2.h"
 #include "Scenario/Scenario.h"
 
 namespace GRAPE {
@@ -35,8 +37,15 @@ namespace GRAPE {
         // Initialize Run Parameters
         switch (m_EmissionsRun.EmissionsRunSpec.EmissionsMdl)
         {
-        case EmissionsModel::None: m_EmissionsCalculator = std::make_unique<EmissionsCalculator>(m_EmissionsRun.parentPerformanceRun().PerfRunSpec, m_EmissionsRun.EmissionsRunSpec); break;
-        case EmissionsModel::BFFM2: m_EmissionsCalculator = std::make_unique<LTOFuelEmissionsCalculator>(m_EmissionsRun.parentPerformanceRun().PerfRunSpec, m_EmissionsRun.EmissionsRunSpec); break;
+        case EmissionsModel::LTOCycle: m_EmissionsCalculator = std::make_unique<EmissionsCalculatorLTOCycle>(m_EmissionsRun.parentPerformanceRun().PerfRunSpec, m_EmissionsRun.EmissionsRunSpec); break;
+        case EmissionsModel::Segments:
+            {
+                if (!m_EmissionsRun.EmissionsRunSpec.BFFM2Model)
+                    m_EmissionsCalculator = std::make_unique<EmissionsCalculatorLTO>(m_EmissionsRun.parentPerformanceRun().PerfRunSpec, m_EmissionsRun.EmissionsRunSpec);
+                else
+                    m_EmissionsCalculator = std::make_unique<EmissionsCalculatorBFFM2>(m_EmissionsRun.parentPerformanceRun().PerfRunSpec, m_EmissionsRun.EmissionsRunSpec);
+                break;
+            }
         default: GRAPE_ASSERT(false) break;
         }
 
@@ -89,7 +98,7 @@ namespace GRAPE {
         if (m_Status.load() == Status::Running)
         {
             m_Status.store(Status::Finished);
-            Log::study()->info(std::format("Finished emissions run '{}' of performance run '{}' of scenario '{}'. Time elapsed: {:%T}.", m_EmissionsRun.Name, m_EmissionsRun.parentPerformanceRun().Name, m_EmissionsRun.parentScenario().Name, emiRunTimer.ellapsedDuration()));
+            Log::study()->info(std::format("Finished emissions run '{}' of performance run '{}' of scenario '{}'. Time elapsed: {:%T}.", m_EmissionsRun.Name, m_EmissionsRun.parentPerformanceRun().Name, m_EmissionsRun.parentScenario().Name, emiRunTimer.elapsedDuration()));
 
         }
     }

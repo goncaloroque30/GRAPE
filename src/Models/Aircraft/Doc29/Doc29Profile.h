@@ -6,13 +6,13 @@
 
 namespace GRAPE {
     struct Doc29AerodynamicCoefficients;
-    class Doc29Performance;
+    class Doc29Aircraft;
     struct Doc29ProfileVisitor;
     struct Doc29ProfileArrivalVisitor;
     struct Doc29ProfileDepartureVisitor;
 
     /**
-    * @brief Base class for all Doc29 profiles. A Doc29Profile belongs to a Doc29Performance. It can be an arrival or departure profile. The possible types are stores in the #Type enum.
+    * @brief Base class for all Doc29 profiles. A Doc29Profile belongs to a Doc29Aircraft. It can be an arrival or departure profile. The possible types are stores in the #Type enum.
     */
     class Doc29Profile {
     public:
@@ -22,7 +22,7 @@ namespace GRAPE {
 
         static constexpr EnumStrings<Type> Types{ "Points", "Procedural" };
 
-        Doc29Profile(Doc29Performance& Doc29AircraftIn, std::string_view Name) : Name(Name), p_Doc29Performance(Doc29AircraftIn) {}
+        Doc29Profile(Doc29Aircraft& Doc29AircraftIn, std::string_view Name) : Name(Name), p_Doc29Performance(Doc29AircraftIn) {}
         Doc29Profile(const Doc29Profile&) = delete;
         Doc29Profile(Doc29Profile&&) = delete;
         Doc29Profile& operator=(const Doc29Profile&) = delete;
@@ -44,16 +44,16 @@ namespace GRAPE {
         [[nodiscard]] virtual Type type() const = 0;
 
         /**
-        * @return The Doc29Performance which owns this Doc29Profile
+        * @return The Doc29Aircraft which owns this Doc29Profile
         */
-        [[nodiscard]] Doc29Performance& parentDoc29Performance() const { return p_Doc29Performance; }
+        [[nodiscard]] Doc29Aircraft& parentDoc29Performance() const { return p_Doc29Performance; }
 
         // Visitor Pattern
         virtual void accept(Doc29ProfileVisitor& Vis) = 0;
         virtual void accept(Doc29ProfileVisitor& Vis) const = 0;
 
     private:
-        std::reference_wrapper<Doc29Performance> p_Doc29Performance;
+        std::reference_wrapper<Doc29Aircraft> p_Doc29Performance;
     };
 
     /**
@@ -62,7 +62,7 @@ namespace GRAPE {
     class Doc29ProfileArrival : public Doc29Profile {
     public:
         // Constructors & Destructor (Copy and Move implicitly deleted)
-        Doc29ProfileArrival(Doc29Performance& Doc29AircraftIn, std::string_view NameIn) : Doc29Profile(Doc29AircraftIn, NameIn) {}
+        Doc29ProfileArrival(Doc29Aircraft& Doc29AircraftIn, std::string_view NameIn) : Doc29Profile(Doc29AircraftIn, NameIn) {}
         virtual ~Doc29ProfileArrival() override = default;
 
         /**
@@ -82,7 +82,7 @@ namespace GRAPE {
     class Doc29ProfileDeparture : public Doc29Profile {
     public:
         // Constructors & Destructor (Copy and Move implicitly deleted)
-        Doc29ProfileDeparture(Doc29Performance& Doc29AircraftIn, std::string_view NameIn) : Doc29Profile(Doc29AircraftIn, NameIn) {}
+        Doc29ProfileDeparture(Doc29Aircraft& Doc29AircraftIn, std::string_view NameIn) : Doc29Profile(Doc29AircraftIn, NameIn) {}
         virtual ~Doc29ProfileDeparture() override = default;
 
         /**
@@ -112,10 +112,10 @@ namespace GRAPE {
 
         /**
         * @brief Construct an empty profile.
-        * @param Doc29PerformanceIn The parent Doc29Performance.
+        * @param Doc29PerformanceIn The parent Doc29Aircraft.
         * @param NameIn The profile name.
         */
-        Doc29ProfileArrivalPoints(Doc29Performance& Doc29PerformanceIn, std::string_view NameIn);
+        Doc29ProfileArrivalPoints(Doc29Aircraft& Doc29PerformanceIn, std::string_view NameIn);
         virtual ~Doc29ProfileArrivalPoints() override = default;
 
         /**
@@ -260,10 +260,10 @@ namespace GRAPE {
 
         /**
         * @brief Construct an empty profile.
-        * @param Doc29PerformanceIn The parent Doc29Performance.
+        * @param Doc29PerformanceIn The parent Doc29Aircraft.
         * @param NameIn The profile name.
         */
-        Doc29ProfileDeparturePoints(Doc29Performance& Doc29PerformanceIn, std::string_view NameIn);
+        Doc29ProfileDeparturePoints(Doc29Aircraft& Doc29PerformanceIn, std::string_view NameIn);
         virtual ~Doc29ProfileDeparturePoints() override = default;
 
         /**
@@ -482,12 +482,12 @@ namespace GRAPE {
 
         /**
         * @brief Construct a profile with an ArrivalStart step and a DescendLand step.
-        * @param Doc29PerformanceIn The parent Doc29Performance.
+        * @param Doc29PerformanceIn The parent Doc29Aircraft.
         * @param NameIn The profile name.
         *
         * ASSERT that Doc29PerformanceIn has Doc29AerodynamicCoefficients of type Land.
         */
-        Doc29ProfileArrivalProcedural(Doc29Performance& Doc29PerformanceIn, std::string_view NameIn);
+        Doc29ProfileArrivalProcedural(Doc29Aircraft& Doc29PerformanceIn, std::string_view NameIn);
         virtual ~Doc29ProfileArrivalProcedural() override;
 
         /**
@@ -643,7 +643,7 @@ namespace GRAPE {
         /**
         * @brief Add a DescendDecelerate step at the start.
         *
-        * ASSERT that parent Doc29Performance contains AerodynamicCoefficientsName.
+        * ASSERT that parent Doc29Aircraft contains AerodynamicCoefficientsName.
         * ASSERT DescentAngle in [-inf, 0[.
         * ASSERT StartCalibratedAirspeed in [0, inf].
         */
@@ -660,7 +660,7 @@ namespace GRAPE {
         /**
         * @brief Add a Level step at the start.
         *
-        * ASSERT that parent Doc29Performance contains AerodynamicCoefficientsName.
+        * ASSERT that parent Doc29Aircraft contains AerodynamicCoefficientsName.
         * ASSERT GroundDistance in ]0, inf].
         */
         void addLevel(const std::string& AerodynamicCoefficientsName, double GroundDistance) noexcept;
@@ -668,7 +668,7 @@ namespace GRAPE {
         /**
         * @brief Add a LevelDecelerate step at the start.
         *
-        * ASSERT that parent Doc29Performance contains AerodynamicCoefficientsName.
+        * ASSERT that parent Doc29Aircraft contains AerodynamicCoefficientsName.
         * ASSERT GroundDistance in ]0, inf].
         * ASSERT StartCalibratedAirspeed in [0.0, inf].
         */
@@ -685,7 +685,7 @@ namespace GRAPE {
         /**
         * @brief Set the DescendLand step parameters.
         *
-        * ASSERT that parent Doc29Performance contains AerodynamicCoefficientsName and it is of type Land.
+        * ASSERT that parent Doc29Aircraft contains AerodynamicCoefficientsName and it is of type Land.
         * ASSERT DescentAngle in [-inf, 0[.
         * ASSERT TouchdownRoll in ]0, inf].
         */
@@ -749,7 +749,7 @@ namespace GRAPE {
         /**
         * @brief Throwing version of addDescendDecelerate(const std::string&, double, double, double).
         *
-        * Throws if parent Doc29Performance does not contain AerodynamicCoefficientsName.
+        * Throws if parent Doc29Aircraft does not contain AerodynamicCoefficientsName.
         * Throws if StartAltitudeAfe is NaN.
         * Throws if DescentAngle not in [-inf, 0[.
         * Throws if StartCalibratedAirspeed not in [0, inf].
@@ -768,7 +768,7 @@ namespace GRAPE {
         /**
         * @brief Throwing version of addLevel(const std::string&, double).
         *
-        * Throws if parent Doc29Performance does not contain AerodynamicCoefficientsName.
+        * Throws if parent Doc29Aircraft does not contain AerodynamicCoefficientsName.
         * Throws if GroundDistance not in ]0, inf].
         */
         void addLevelE(const std::string& AerodynamicCoefficientsName, double GroundDistance);
@@ -776,7 +776,7 @@ namespace GRAPE {
         /**
         * @brief Throwing version of addLevelDecelerate(const std::string&, double, double).
         *
-        * Throws if parent Doc29Performance does not contain AerodynamicCoefficientsName.
+        * Throws if parent Doc29Aircraft does not contain AerodynamicCoefficientsName.
         * Throws if GroundDistance not in ]0, inf].
         * Throws if StartCalibratedAirspeed not in [0, inf].
         */
@@ -793,7 +793,7 @@ namespace GRAPE {
         /**
         * @brief Throwing version of setDescendLandParameters(const std::string&, double, double, double).
         *
-        * Throws if parent Doc29Performance does not contain AerodynamicCoefficientsName or type is not Land.
+        * Throws if parent Doc29Aircraft does not contain AerodynamicCoefficientsName or type is not Land.
         * Throws if DescentAngle not in [-inf, 0[.
         * Throws if ThresholdCrossingAltitudeAfe is NaN.
         * Throws if TouchdownRoll not in ]0, inf].
@@ -958,12 +958,12 @@ namespace GRAPE {
 
         /**
         * @brief Construct a profile with a Takeoff step.
-        * @param Doc29PerformanceIn The parent Doc29Performance.
+        * @param Doc29PerformanceIn The parent Doc29Aircraft.
         * @param NameIn The profile name.
         *
         * ASSERT that Doc29PerformanceIn has Doc29AerodynamicCoefficients of type Takeoff.
         */
-        Doc29ProfileDepartureProcedural(Doc29Performance& Doc29PerformanceIn, const std::string& NameIn);
+        Doc29ProfileDepartureProcedural(Doc29Aircraft& Doc29PerformanceIn, const std::string& NameIn);
         virtual ~Doc29ProfileDepartureProcedural() override;
 
         /**
@@ -1026,7 +1026,7 @@ namespace GRAPE {
         /**
         * @brief Set the Takeoff step parameters.
         *
-        * ASSERT that parent Doc29Performance contains AerodynamicCoefficientsName and type is Takeoff.
+        * ASSERT that parent Doc29Aircraft contains AerodynamicCoefficientsName and type is Takeoff.
         * ASSERT InitialCalibratedAirspeed in [0.0, inf].
         */
         void setTakeoffParameters(const std::string& AerodynamicCoefficientsName, double InitialCalibratedAirspeed) noexcept;
@@ -1034,7 +1034,7 @@ namespace GRAPE {
         /**
         * @brief Add a Climb step to the end.
         *
-        * ASSERT that parent Doc29Performance contains AerodynamicCoefficientsName.
+        * ASSERT that parent Doc29Aircraft contains AerodynamicCoefficientsName.
         * ASSERT EndAltitudeAfe is not NaN.
         */
         void addClimb(const std::string& AerodynamicCoefficientsName, double EndAltitudeAfe) noexcept;
@@ -1042,7 +1042,7 @@ namespace GRAPE {
         /**
         * @brief Add a ClimbAccelerate step to the end.
         *
-        * ASSERT that parent Doc29Performance contains AerodynamicCoefficientsName.
+        * ASSERT that parent Doc29Aircraft contains AerodynamicCoefficientsName.
         * ASSERT EndCalibratedAirspeed in [0, inf].
         * ASSERT ClimbRate in [0, inf].
         */
@@ -1051,7 +1051,7 @@ namespace GRAPE {
         /**
         * @brief Add a ClimbAcceleratePercentage step to the end.
         *
-        * ASSERT that parent Doc29Performance contains AerodynamicCoefficientsName.
+        * ASSERT that parent Doc29Aircraft contains AerodynamicCoefficientsName.
         * ASSERT EndCalibratedAirspeed in [0, inf].
         * ASSERT AccelerationPercentage in ]0, 1].
         */
@@ -1077,7 +1077,7 @@ namespace GRAPE {
         /**
         * @brief Throwing version of setTakeoffParameters(const std::string&, double).
         *
-        * Throws if parent Doc29Performance does not contain AerodynamicCoefficientsName or type is not Takeoff.
+        * Throws if parent Doc29Aircraft does not contain AerodynamicCoefficientsName or type is not Takeoff.
         * Throws if InitialCalibratedAirspeed not in [0, inf].
         */
         void setTakeoffParametersE(const std::string& AerodynamicCoefficientsName, double InitialCalibratedAirspeed);
@@ -1085,7 +1085,7 @@ namespace GRAPE {
         /**
         * @brief Throwing version of addClimb(const std::string&, double).
         *
-        * Throws if parent Doc29Performance does not contain AerodynamicCoefficientsName.
+        * Throws if parent Doc29Aircraft does not contain AerodynamicCoefficientsName.
         * Throws if EndAltitudeAfe is NaN.
         */
         void addClimbE(const std::string& AerodynamicCoefficientsName, double EndAltitudeAfe);
@@ -1093,7 +1093,7 @@ namespace GRAPE {
         /**
         * @brief Throwing version of addClimbAccelerate(const std::string&, double, double).
         *
-        * Throws if parent Doc29Performance does not contain AerodynamicCoefficientsName.
+        * Throws if parent Doc29Aircraft does not contain AerodynamicCoefficientsName.
         * Throws if EndCalibratedAirspeed not in [0, inf].
         * Throws if ClimbRate not in [0, inf].
         */
@@ -1102,7 +1102,7 @@ namespace GRAPE {
         /**
         * @brief Throwing version of addClimbAcceleratePercentage(const std::string&, double, double).
         *
-        * Throws if parent Doc29Performance does not contain AerodynamicCoefficientsName.
+        * Throws if parent Doc29Aircraft does not contain AerodynamicCoefficientsName.
         * Throws if EndCalibratedAirspeed not in [0, inf].
         * Throws if AccelerationPercentage not in ]0, 1].
         */

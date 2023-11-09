@@ -4,7 +4,7 @@
 
 #include "Panel.h"
 
-#include "Aircraft/Doc29/Doc29Performance.h"
+#include "Aircraft/Doc29/Doc29Aircraft.h"
 #include "Aircraft/Doc29/Doc29Noise.h"
 
 namespace GRAPE {
@@ -14,12 +14,12 @@ namespace GRAPE {
         Doc29Panel() : Panel("Doc29") {}
 
         // Change Data
-        void select(Doc29Performance& Doc29Acft);
+        void select(Doc29Aircraft& Doc29Acft);
         void select(Doc29ProfileArrival& Doc29Prof);
         void select(Doc29ProfileDeparture& Doc29Prof);
         void select(Doc29Noise& Doc29Ns);
 
-        void deselect(Doc29Performance& Doc29Acft);
+        void deselect(Doc29Aircraft& Doc29Acft);
         void deselect(Doc29ProfileArrival& Doc29Prof);
         void deselect(Doc29ProfileDeparture& Doc29Prof);
         void deselect(Doc29Noise& Doc29Ns);
@@ -29,7 +29,7 @@ namespace GRAPE {
         void clearSelection();
 
         // Status Checks
-        [[nodiscard]] bool isSelected(Doc29Performance& Doc29Acft) const;
+        [[nodiscard]] bool isSelected(Doc29Aircraft& Doc29Acft) const;
         [[nodiscard]] bool isSelected(Doc29ProfileArrival& Doc29Prof) const;
         [[nodiscard]] bool isSelected(Doc29ProfileDeparture& Doc29Prof) const;
         [[nodiscard]] bool isSelected(Doc29Noise& Doc29Ns) const;
@@ -41,7 +41,7 @@ namespace GRAPE {
 
     private:
         // Selection
-        std::vector<Doc29Performance*> m_SelectedDoc29Aircraft;
+        std::vector<Doc29Aircraft*> m_SelectedDoc29Aircraft;
         std::vector<Doc29ProfileArrival*> m_SelectedDoc29ProfileArrivals;
         std::vector<Doc29ProfileDeparture*> m_SelectedDoc29ProfileDepartures;
         std::vector<Doc29Noise*> m_SelectedDoc29Noises;
@@ -53,7 +53,7 @@ namespace GRAPE {
         std::function<void()> m_Action;
 
     private:
-        void drawDoc29AircraftNode(const std::string& Doc29AcftId, Doc29Performance& Doc29Acft);
+        void drawDoc29AircraftNode(const std::string& Doc29AcftId, Doc29Aircraft& Doc29Acft);
         void drawDoc29NoiseNode(const std::string& Doc29NsId, Doc29Noise& Doc29Ns);
 
         void drawSelectedDoc29Aircraft();

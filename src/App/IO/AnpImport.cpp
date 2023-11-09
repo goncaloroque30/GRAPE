@@ -6,7 +6,7 @@
 
 #include "Application.h"
 #include "Aircraft/Aircraft.h"
-#include "Aircraft/Doc29/Doc29Performance.h"
+#include "Aircraft/Doc29/Doc29Aircraft.h"
 #include "Aircraft/Doc29/Doc29Noise.h"
 
 #include "Csv.h"
@@ -141,58 +141,51 @@ namespace GRAPE::IO {
         for (std::size_t row = 0; row < csv.rowCount(); row++)
         {
             Aircraft* newAcft = nullptr;
-            const Doc29Performance* newDoc29Perf = nullptr;
+            const Doc29Aircraft* newDoc29Acft = nullptr;
             const Doc29Noise* newDoc29Ns = nullptr;
             try
             {
                 // Doc29 Aircraft
-                auto doc29PerfName = csv.getCell<std::string>(row, 0);
-                if (doc29PerfName.empty())
-                    throw GrapeException("Empty Doc29 aircraft name.");
+                auto doc29AcftName = csv.getCell<std::string>(row, 0);
+                if (doc29AcftName.empty())
+                    throw GrapeException("Empty Doc29 Aircraft name.");
+                auto& doc29Acft = study.Doc29Aircrafts.addPerformanceE(doc29AcftName);
+                newDoc29Acft = &doc29Acft;
 
-                // Type
                 const auto typeStr = csv.getCell<std::string>(row, 2);
-                auto type = Doc29Performance::Type::Jet;
                 if (typeStr == "Jet")
-                    type = Doc29Performance::Type::Jet;
+                    doc29Acft.setThrustType(Doc29Thrust::Type::Rating);
                 else if (typeStr == "Turboprop")
-                    type = Doc29Performance::Type::Turboprop;
+                    doc29Acft.setThrustType(Doc29Thrust::Type::RatingPropeller);
                 else if (typeStr == "Piston")
-                    type = Doc29Performance::Type::Piston;
-                else
-                    throw std::invalid_argument(std::format("Aircraft type '{}' not supported.", typeStr));
-                auto& doc29Perf = study.Doc29Performances.addPerformanceE(type, doc29PerfName);
-                newDoc29Perf = &doc29Perf;
+                    m_PistonAircraft.emplace_back(doc29AcftName);
 
-                study.Doc29Performances.updatePerformance(doc29Perf);
-
-                // Aircraft
-                double maximumSeaLevelStaticThrust = Constants::NaN;
-                try { maximumSeaLevelStaticThrust = fromPoundsOfForce(csv.getCell<double>(row, 9)); }
+                try { doc29Acft.setMaximumSeaLevelStaticThrust(fromPoundsOfForce(csv.getCell<double>(row, 9))); }
+                catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid maximum sea level static thrust."); }
 
+                study.Doc29Aircrafts.updatePerformance(doc29Acft);
+
+                // Aircraft
                 if (s_ImportFleet)
                 {
-                    if (study.Aircrafts().contains(doc29Perf.Name))
+                    if (study.Aircrafts().contains(doc29Acft.Name))
                     {
-                        Log::io()->warn("Aircraft '{0}' already exists in this study. ANP data for '{0}' will overwrite it.", doc29Perf.Name);
-                        newAcft = &study.Aircrafts(doc29Perf.Name);
+                        Log::io()->warn("Aircraft '{0}' already exists in this study. ANP data for '{0}' will overwrite it.", doc29Acft.Name);
+                        newAcft = &study.Aircrafts(doc29Acft.Name);
                     }
                     else
                     {
-                        newAcft = &study.Aircrafts.addAircraftE(doc29Perf.Name);
+                        newAcft = &study.Aircrafts.addAircraftE(doc29Acft.Name);
                     }
                     auto& acft = *newAcft;
 
-                    study.Aircrafts.setDoc29Performance(acft, newDoc29Perf);
+                    study.Aircrafts.setDoc29Performance(acft, newDoc29Acft);
 
                     // Engine Count
                     try { acft.setEngineCountE(csv.getCell<int>(row, 3)); }
                     catch (const GrapeException&) { throw; }
                     catch (...) { throw std::invalid_argument("Invalid engine count."); }
-
-                    // Maximum Sea Level Static Thrust
-                    acft.setMaximumSeaLevelStaticThrustE(maximumSeaLevelStaticThrust);
                 }
 
                 // Doc29 Noise
@@ -213,8 +206,8 @@ namespace GRAPE::IO {
 
                 if (powerParam == PowerParameter::Percentage) // Percentage will be converted to thrust and multiple created
                 {
-                    const std::string noiseIdGrape = std::string(noiseId).append(" ").append(doc29PerfName);
-                    m_PercentagePowerParameters[noiseId].emplace_back(noiseIdGrape, maximumSeaLevelStaticThrust);
+                    const std::string noiseIdGrape = std::string(noiseId).append(" ").append(doc29AcftName);
+                    m_PercentagePowerParameters[noiseId].emplace_back(noiseIdGrape, doc29Acft.MaximumSeaLevelStaticThrust);
                     noiseId = noiseIdGrape;
                 }
 
@@ -258,17 +251,12 @@ namespace GRAPE::IO {
                     throw GrapeException(std::format("Invalid lateral directivity identifier '{}'.", lateralDirectivityStr));
 
                 // Start of Roll Correction (Depends on aircraft type)
-                switch (type)
-                {
-                case Doc29Performance::Type::Jet: doc29Ns.SOR = Doc29Noise::SORCorrection::Jet;
-                    break;
-                case Doc29Performance::Type::Turboprop: doc29Ns.SOR = Doc29Noise::SORCorrection::Turboprop;
-                    break;
-                case Doc29Performance::Type::Piston: doc29Ns.SOR = Doc29Noise::SORCorrection::None;
-                    break;
-                default: GRAPE_ASSERT(false);
-                    break;
-                }
+                if (typeStr == "Jet")
+                    doc29Ns.SOR = Doc29Noise::SORCorrection::Jet;
+                else if (typeStr == "Turboprop")
+                    doc29Ns.SOR = Doc29Noise::SORCorrection::Turboprop;
+                else
+                    doc29Ns.SOR = Doc29Noise::SORCorrection::None;
 
                 study.Doc29Noises.updateNoise(doc29Ns);
             }
@@ -277,8 +265,8 @@ namespace GRAPE::IO {
                 Log::io()->error("Importing ANP aircraft at row {}. {}", row + 2, err.what());
                 if (newAcft)
                     study.Aircrafts.erase(*newAcft);
-                if (newDoc29Perf)
-                    study.Doc29Performances.erasePerformance(*newDoc29Perf);
+                if (newDoc29Acft)
+                    study.Doc29Aircrafts.erasePerformance(*newDoc29Acft);
                 if (newDoc29Ns)
                     study.Doc29Noises.eraseNoise(*newDoc29Ns);
 
@@ -405,16 +393,16 @@ namespace GRAPE::IO {
             try
             {
                 // Aircraft Name
-                auto doc29PerfName = csv.getCell<std::string>(row, 0);
-                if (!study.Doc29Performances().contains(doc29PerfName))
-                    throw GrapeException(std::format("Doc29 Performance '{}' not found in the study.", doc29PerfName));
-                auto& doc29Perf = study.Doc29Performances(doc29PerfName);
+                auto doc29AcftName = csv.getCell<std::string>(row, 0);
+                if (!study.Doc29Aircrafts().contains(doc29AcftName))
+                    throw GrapeException(std::format("Doc29 Aircraft '{}' not found in the study.", doc29AcftName));
+                auto& doc29Acft = study.Doc29Aircrafts(doc29AcftName);
 
                 // Check that thrust type is set to rating
-                if (doc29Perf.thrust().type() != Doc29Thrust::Type::Rating)
+                if (doc29Acft.thrust().type() != Doc29Thrust::Type::Rating)
                 {
-                    Log::io()->warn("Jet engine coefficients found for Doc29 Performance '{}' of type {}. Thrust type will be set to rating.", doc29PerfName, Doc29Performance::Types.toString(doc29Perf.type()));
-                    doc29Perf.setThrustType(Doc29Thrust::Type::Rating);
+                    Log::io()->warn("Jet engine coefficients found for Doc29 Aircraft '{}'. Thrust type will be set to rating.", doc29AcftName);
+                    doc29Acft.setThrustType(Doc29Thrust::Type::Rating);
                 }
 
                 // Thrust rating
@@ -435,7 +423,7 @@ namespace GRAPE::IO {
                 else if (thrustRatingStr == "General")
                     continue; // Silently skip General thrust coefficients
                 else
-                    throw GrapeException(std::format("Thrust rating '{}' not supported for Doc29 Performance of type jet.", thrustRatingStr));
+                    throw GrapeException(std::format("Thrust rating '{}' not supported.", thrustRatingStr));
 
                 // Coefficients
                 Doc29ThrustRating::Coefficients coeffs;
@@ -475,12 +463,12 @@ namespace GRAPE::IO {
                     catch (...) { throw std::invalid_argument("Invalid H coefficient."); }
                 }
 
-                auto& doc29Thrust = static_cast<Doc29ThrustRating&>(doc29Perf.thrust());
+                auto& doc29Thrust = static_cast<Doc29ThrustRating&>(doc29Acft.thrust());
                 auto [newCoeffs, added] = doc29Thrust.Coeffs.add(thrustRating, coeffs);
                 if (!added)
                     throw GrapeException(std::format("The thrust rating {} ({}) has already been added.", thrustRatingStr, Doc29Thrust::Ratings.toString(thrustRating)));
 
-                study.Doc29Performances.updateThrust(doc29Perf);
+                study.Doc29Aircrafts.updateThrust(doc29Acft);
             }
             catch (const std::exception& err)
             {
@@ -509,21 +497,15 @@ namespace GRAPE::IO {
         {
             try
             {
-                auto doc29PerfName = csv.getCell<std::string>(row, 0);
-                if (!study.Doc29Performances().contains(doc29PerfName))
-                    throw GrapeException(std::format("Doc29 Performance '{}' not found in the study.", doc29PerfName));
-                auto& doc29Perf = study.Doc29Performances(doc29PerfName);
+                auto doc29AcftName = csv.getCell<std::string>(row, 0);
+                if (!study.Doc29Aircrafts().contains(doc29AcftName))
+                    throw GrapeException(std::format("Doc29 Aircraft '{}' not found in the study.", doc29AcftName));
+                auto& doc29Acft = study.Doc29Aircrafts(doc29AcftName);
 
-                if (doc29Perf.type() == Doc29Performance::Type::Jet)
-                    throw GrapeException(std::format("Can't set propeller thrust for Doc29 Performance of type Jet.", Doc29Performance::Types.toString(doc29Perf.type())));
-
-                if (doc29Perf.type() == Doc29Performance::Type::Piston)
-                    throw GrapeException(std::format("Can't set propeller thrust for Doc29 Performance of type Piston.", Doc29Performance::Types.toString(doc29Perf.type())));
-
-                if (doc29Perf.thrust().type() != Doc29Thrust::Type::RatingPropeller)
+                if (doc29Acft.thrust().type() != Doc29Thrust::Type::RatingPropeller)
                 {
-                    Log::io()->warn("Propeller engine coefficients found for Doc29 Performance '{}' of type {}. Thrust type will be set to propeller.", doc29PerfName, Doc29Performance::Types.toString(doc29Perf.type()));
-                    doc29Perf.setThrustType(Doc29Thrust::Type::RatingPropeller);
+                    Log::io()->warn("Propeller engine coefficients found for Doc29 Aircraft '{}'. Thrust type will be set to propeller.", doc29AcftName);
+                    doc29Acft.setThrustType(Doc29Thrust::Type::RatingPropeller);
                 }
 
                 // Thrust rating
@@ -536,7 +518,7 @@ namespace GRAPE::IO {
                 else if (thrustRatingStr == "General")
                     continue; // Silently skip General thrust coefficients
                 else
-                    throw GrapeException(std::format("Thrust rating '{}' not supported for propeller type.", thrustRatingStr));
+                    throw GrapeException(std::format("Thrust rating propeller '{}' not supported.", thrustRatingStr));
 
                 // Coefficients
                 Doc29ThrustRatingPropeller::Coefficients coeffs;
@@ -557,12 +539,12 @@ namespace GRAPE::IO {
                     catch (...) { throw std::invalid_argument("Invalid propeller power."); }
                 }
 
-                auto& doc29ThrustPropeller = static_cast<Doc29ThrustRatingPropeller&>(doc29Perf.thrust());
+                auto& doc29ThrustPropeller = static_cast<Doc29ThrustRatingPropeller&>(doc29Acft.thrust());
                 auto [newCoeffs, added] = doc29ThrustPropeller.addCoefficients(thrustRating, coeffs);
                 if (!added)
                     throw GrapeException(std::format("The thrust rating {} ({}) has already been added.", thrustRatingStr, Doc29Thrust::Ratings.toString(thrustRating)));
 
-                study.Doc29Performances.updateThrust(doc29Perf);
+                study.Doc29Aircrafts.updateThrust(doc29Acft);
             }
             catch (const std::exception& err)
             {
@@ -592,10 +574,10 @@ namespace GRAPE::IO {
             try
             {
                 // Aircraft
-                const auto doc29PerfName = csv.getCell<std::string>(row, 0);
-                if (!study.Doc29Performances().contains(doc29PerfName))
-                    throw GrapeException(std::format("Doc29 Performance '{}' not found in the study.", doc29PerfName));
-                auto& doc29Perf = study.Doc29Performances(doc29PerfName);
+                const auto doc29AcftName = csv.getCell<std::string>(row, 0);
+                if (!study.Doc29Aircrafts().contains(doc29AcftName))
+                    throw GrapeException(std::format("Doc29 Aircraft '{}' not found in the study.", doc29AcftName));
+                auto& doc29Acft = study.Doc29Aircrafts(doc29AcftName);
 
                 // Operation Type
                 const auto opTypeStr = csv.getCell<std::string>(row, 1);
@@ -609,7 +591,7 @@ namespace GRAPE::IO {
 
                 const std::string insertCoeffName = std::string(aeroCoeffName).append(" ").append(opTypeStr);
 
-                auto [coeff, added] = doc29Perf.AerodynamicCoefficients.add(insertCoeffName, insertCoeffName);
+                auto [coeff, added] = doc29Acft.AerodynamicCoefficients.add(insertCoeffName, insertCoeffName);
                 if (!added)
                     throw GrapeException(std::format("Duplicate flap ID '{}' for operation type {}.", aeroCoeffName, opTypeStr));
 
@@ -646,7 +628,7 @@ namespace GRAPE::IO {
                     coeff.CoefficientType = Doc29AerodynamicCoefficients::Type::Takeoff;
                 }
 
-                study.Doc29Performances.updateAerodynamicCoefficients(doc29Perf);
+                study.Doc29Aircrafts.updateAerodynamicCoefficients(doc29Acft);
             }
             catch (const std::exception& err)
             {
@@ -676,14 +658,13 @@ namespace GRAPE::IO {
             try
             {
                 // Aircraft
-                auto doc29PerfName = csv.getCell<std::string>(row, 0);
-                if (!study.Doc29Performances().contains(doc29PerfName))
-                    throw GrapeException(std::format("Doc29 Performance '{}' not found in the study.", doc29PerfName));
-                auto& doc29Perf = study.Doc29Performances(doc29PerfName);
+                auto doc29AcftName = csv.getCell<std::string>(row, 0);
+                if (!study.Doc29Aircrafts().contains(doc29AcftName))
+                    throw GrapeException(std::format("Doc29 Aircraft '{}' not found in the study.", doc29AcftName));
+                auto& doc29Acft = study.Doc29Aircrafts(doc29AcftName);
 
-                if (doc29Perf.type() == Doc29Performance::Type::Piston)
-                    throw GrapeException(std::format("Doc29 Performance '{}' is of piston type. Fixed point profiles are not supported.", doc29PerfName));
-
+                if (std::ranges::find(m_PistonAircraft, doc29AcftName) != m_PistonAircraft.end())
+                    throw GrapeException(std::format("ANP aircraft '{}' is of piston type. Fixed point profiles not suported", doc29AcftName));
                 // Operation Type
                 auto opTypeStr = csv.getCell<std::string>(row, 1);
                 auto opType = OperationType::Arrival;
@@ -725,9 +706,9 @@ namespace GRAPE::IO {
                 case OperationType::Arrival:
                     {
                         Doc29ProfileArrivalPoints* doc29ProfPts = nullptr;
-                        if (doc29Perf.ArrivalProfiles.contains(profileName))
+                        if (doc29Acft.ArrivalProfiles.contains(profileName))
                         {
-                            auto& doc29Prof = doc29Perf.ArrivalProfiles(profileName);
+                            auto& doc29Prof = doc29Acft.ArrivalProfiles(profileName);
                             if (doc29Prof->type() != Doc29Profile::Type::Points)
                                 throw GrapeException("Arrival profile with the same name but of different type already exists in the study.");
 
@@ -735,7 +716,7 @@ namespace GRAPE::IO {
                         }
                         else
                         {
-                            auto& doc29Prof = study.Doc29Performances.addProfileArrivalE(doc29Perf, Doc29Profile::Type::Points, profileName);
+                            auto& doc29Prof = study.Doc29Aircrafts.addProfileArrivalE(doc29Acft, Doc29Profile::Type::Points, profileName);
                             doc29ProfPts = static_cast<Doc29ProfileArrivalPoints*>(&doc29Prof);
                         }
 
@@ -743,15 +724,15 @@ namespace GRAPE::IO {
                         cumGroundDist += fromFeet(50.0) / std::tan(toRadians(3.0)); // Assumes 3 degree descent angle
 
                         doc29ProfPts->addPointE(cumGroundDist, altitudeAfe, tas, thrust);
-                        study.Doc29Performances.updateProfile(*doc29ProfPts);
+                        study.Doc29Aircrafts.updateProfile(*doc29ProfPts);
                         break;
                     }
                 case OperationType::Departure:
                     {
                         Doc29ProfileDeparturePoints* doc29ProfPts = nullptr;
-                        if (doc29Perf.DepartureProfiles.contains(profileName))
+                        if (doc29Acft.DepartureProfiles.contains(profileName))
                         {
-                            auto& doc29Prof = doc29Perf.DepartureProfiles(profileName);
+                            auto& doc29Prof = doc29Acft.DepartureProfiles(profileName);
                             if (doc29Prof->type() != Doc29Profile::Type::Points)
                                 throw GrapeException("Departure profile with the same name but of different type already exists in the study.");
 
@@ -759,12 +740,12 @@ namespace GRAPE::IO {
                         }
                         else
                         {
-                            auto& doc29Prof = study.Doc29Performances.addProfileDepartureE(doc29Perf, Doc29Profile::Type::Points, profileName);
+                            auto& doc29Prof = study.Doc29Aircrafts.addProfileDepartureE(doc29Acft, Doc29Profile::Type::Points, profileName);
                             doc29ProfPts = static_cast<Doc29ProfileDeparturePoints*>(&doc29Prof);
                         }
 
                         doc29ProfPts->addPointE(cumGroundDist, altitudeAfe, tas, thrust);
-                        study.Doc29Performances.updateProfile(*doc29ProfPts);
+                        study.Doc29Aircrafts.updateProfile(*doc29ProfPts);
                         break;
                     }
                 default: GRAPE_ASSERT(false);
@@ -798,10 +779,10 @@ namespace GRAPE::IO {
             try
             {
                 // Aircraft
-                auto doc29PerfName = csv.getCell<std::string>(row, 0);
-                if (!study.Doc29Performances().contains(doc29PerfName))
-                    throw GrapeException(std::format("Doc29 Performance '{}' not found in the study.", doc29PerfName));
-                auto& doc29Perf = study.Doc29Performances(doc29PerfName);
+                auto doc29AcftName = csv.getCell<std::string>(row, 0);
+                if (!study.Doc29Aircrafts().contains(doc29AcftName))
+                    throw GrapeException(std::format("Doc29 Aircraft '{}' not found in the study.", doc29AcftName));
+                auto& doc29Acft = study.Doc29Aircrafts(doc29AcftName);
 
                 // Profile
                 auto profileId = csv.getCell<std::string>(row, 1);
@@ -877,9 +858,9 @@ namespace GRAPE::IO {
 
                 // Create or get profile
                 Doc29ProfileArrivalProcedural* doc29ProfProc = nullptr;
-                if (doc29Perf.ArrivalProfiles.contains(profileId))
+                if (doc29Acft.ArrivalProfiles.contains(profileId))
                 {
-                    auto& doc29Prof = doc29Perf.ArrivalProfiles(profileId);
+                    auto& doc29Prof = doc29Acft.ArrivalProfiles(profileId);
                     if (doc29Prof->type() != Doc29Profile::Type::Procedural)
                         throw GrapeException("Arrival profile with the same name but of different type already exists in the study.");
 
@@ -888,7 +869,7 @@ namespace GRAPE::IO {
                 else
                 {
                     // New profile
-                    auto& doc29Prof = study.Doc29Performances.addProfileArrivalE(doc29Perf, Doc29Profile::Type::Procedural, profileId);
+                    auto& doc29Prof = study.Doc29Aircrafts.addProfileArrivalE(doc29Acft, Doc29Profile::Type::Procedural, profileId);
                     doc29ProfProc = static_cast<Doc29ProfileArrivalProcedural*>(&doc29Prof);
                 }
 
@@ -995,7 +976,7 @@ namespace GRAPE::IO {
                     }
                 default: GRAPE_ASSERT(false);
                 }
-                study.Doc29Performances.updateProfile(*doc29ProfProc);
+                study.Doc29Aircrafts.updateProfile(*doc29ProfProc);
             }
             catch (const std::exception& err)
             {
@@ -1025,10 +1006,10 @@ namespace GRAPE::IO {
             try
             {
                 // Doc29 Performance
-                auto doc29PerfName = csv.getCell<std::string>(row, 0);
-                if (!study.Doc29Performances().contains(doc29PerfName))
-                    throw GrapeException(std::format("Doc29 Performance '{}' not found in the study.", doc29PerfName));
-                auto& doc29Perf = study.Doc29Performances(doc29PerfName);
+                auto doc29AcftName = csv.getCell<std::string>(row, 0);
+                if (!study.Doc29Aircrafts().contains(doc29AcftName))
+                    throw GrapeException(std::format("Doc29 Aircraft '{}' not found in the study.", doc29AcftName));
+                auto& doc29Acft = study.Doc29Aircrafts(doc29AcftName);
 
                 // Profile
                 const auto profileId = csv.getCell<std::string>(row, 1);
@@ -1044,17 +1025,17 @@ namespace GRAPE::IO {
                 profileName.append(" ").append(stageLength);
 
                 Doc29ProfileDepartureProcedural* doc29ProfProc = nullptr;
-                if (doc29Perf.DepartureProfiles.contains(profileName))
+                if (doc29Acft.DepartureProfiles.contains(profileName))
                 {
-                    auto& doc29Prof = doc29Perf.DepartureProfiles(profileName);
+                    auto& doc29Prof = doc29Acft.DepartureProfiles(profileName);
                     if (doc29Prof->type() != Doc29Profile::Type::Procedural)
-                        throw GrapeException(std::format("Departure profile with the same name but of different type already exists for Doc29 Performance '{}'.", doc29Perf.Name));
+                        throw GrapeException(std::format("Departure profile with the same name but of different type already exists for Doc29 Aircraft '{}'.", doc29Acft.Name));
 
                     doc29ProfProc = static_cast<Doc29ProfileDepartureProcedural*>(doc29Prof.get());
                 }
                 else
                 {
-                    auto& doc29Prof = study.Doc29Performances.addProfileDepartureE(doc29Perf, Doc29Profile::Type::Procedural, profileName);
+                    auto& doc29Prof = study.Doc29Aircrafts.addProfileDepartureE(doc29Acft, Doc29Profile::Type::Procedural, profileName);
                     doc29ProfProc = static_cast<Doc29ProfileDepartureProcedural*>(&doc29Prof);
                 }
 
@@ -1154,7 +1135,7 @@ namespace GRAPE::IO {
                 default: GRAPE_ASSERT(false);
                 }
 
-                study.Doc29Performances.updateProfile(*doc29ProfProc);
+                study.Doc29Aircrafts.updateProfile(*doc29ProfProc);
             }
             catch (const std::exception& err)
             {

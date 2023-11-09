@@ -12,6 +12,8 @@ namespace GRAPE {
 
     void PerformanceRunOutput::clear() {
         std::scoped_lock lck(m_Mutex);
+        if (empty())
+            return;
         m_ArrivalOutputs.clear();
         m_ArrivalOutputs.shrink_to_fit();
         m_DepartureOutputs.clear();

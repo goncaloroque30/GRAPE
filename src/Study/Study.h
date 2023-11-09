@@ -43,7 +43,7 @@ namespace GRAPE {
     public:
         //Managers
         AirportsManager Airports;
-        Doc29PerformanceManager Doc29Performances;
+        Doc29PerformanceManager Doc29Aircrafts;
         Doc29NoiseManager Doc29Noises;
         SFIManager SFIs;
         LTOManager LTOEngines;
@@ -57,6 +57,7 @@ namespace GRAPE {
         // Constraints
         Constraints Blocks;
     private:
+        void elevate(int CurrentVersion);
         void loadFile();
     };
 }

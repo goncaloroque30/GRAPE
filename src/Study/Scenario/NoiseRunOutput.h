@@ -32,6 +32,9 @@ namespace GRAPE {
         [[nodiscard]] const auto& cumulativeOutputs() const { return m_CumulativeOutputs; }
         [[nodiscard]] const NoiseCumulativeOutput& cumulativeOutput(const NoiseCumulativeMetric& Metric) const;
 
+        // Status Checks (Not thread Safe)
+        [[nodiscard]] bool empty() const { return m_ReceptorOutput.empty(); }
+
         // Change Data (Thread Safe)
         void setReceptorOutput(ReceptorOutput&& ReceptOutput);
         void addSingleEvent(const Operation& Op, const NoiseSingleEventOutput& NsOut) const;

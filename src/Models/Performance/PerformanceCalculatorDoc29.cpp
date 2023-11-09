@@ -4,6 +4,7 @@
 
 #include "PerformanceCalculatorDoc29.h"
 
+#include "Base/Math.h"
 #include "Aircraft/Doc29/Doc29ProfileCalculator.h"
 
 namespace GRAPE {
@@ -11,12 +12,12 @@ namespace GRAPE {
         constexpr std::array Doc29DefaultHeights = { 18.9, 41.5, 68.3, 102.1, 147.5, 214.9, 334.9, 609.6, 1289.6 };
     }
 
-    PerformanceCalculatorDoc29::PerformanceCalculatorDoc29(const PerformanceSpecification& Spec) : PerformanceCalculator(Spec) {}
+    PerformanceCalculatorDoc29::PerformanceCalculatorDoc29(const PerformanceSpecification& Spec) : PerformanceCalculatorFlight(Spec) {}
 
     std::optional<PerformanceOutput> PerformanceCalculatorDoc29::calculate(const FlightArrival& FlightArr, const RouteOutput& RteOutput) const {
         PerformanceOutput perfOutput;
 
-        Doc29ProfileArrivalCalculator profCalculator(*m_Spec.CoordSys, m_Spec.Atmospheres.atmosphere(FlightArr.Time), FlightArr.aircraft(), FlightArr.route().parentRunway(), RteOutput, FlightArr.Weight);
+        Doc29ProfileArrivalCalculator profCalculator(*m_Spec.CoordSys, m_Spec.Atmospheres.atmosphere(FlightArr.Time), *FlightArr.aircraft().Doc29Acft, FlightArr.route().parentRunway(), RteOutput, FlightArr.Weight, FlightArr.aircraft().EngineCount);
         const auto profOutputOpt = profCalculator.calculate(*FlightArr.Doc29Prof);
         if (!profOutputOpt)
         {
@@ -147,7 +148,7 @@ namespace GRAPE {
     std::optional<PerformanceOutput> PerformanceCalculatorDoc29::calculate(const FlightDeparture& FlightDep, const RouteOutput& RteOutput) const {
         PerformanceOutput perfOutput;
 
-        Doc29ProfileDepartureCalculator profCalculator(*m_Spec.CoordSys, m_Spec.Atmospheres.atmosphere(FlightDep.Time), FlightDep.aircraft(), FlightDep.route().parentRunway(), RteOutput, FlightDep.Weight, FlightDep.ThrustPercentageTakeoff, FlightDep.ThrustPercentageClimb);
+        Doc29ProfileDepartureCalculator profCalculator(*m_Spec.CoordSys, m_Spec.Atmospheres.atmosphere(FlightDep.Time), *FlightDep.aircraft().Doc29Acft, FlightDep.route().parentRunway(), RteOutput, FlightDep.Weight, FlightDep.aircraft().EngineCount, FlightDep.ThrustPercentageTakeoff, FlightDep.ThrustPercentageClimb);
         const auto profOutputOpt = profCalculator.calculate(*FlightDep.Doc29Prof);
         if (!profOutputOpt)
         {
@@ -244,7 +245,7 @@ namespace GRAPE {
 
             // Initial Climb
             {
-                for (auto it = std::next(profOutput.begin()); it != profOutput.begin(); ++it)
+                for (auto it = std::next(profOutput.begin()); it != profOutput.end(); ++it)
                 {
                     auto& [p2CumDist, p2] = *it;
                     double p2AltitudeAfe = p2.AltitudeMsl - elev;

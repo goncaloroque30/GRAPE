@@ -5,7 +5,8 @@
 #include "Job.h"
 
 #include "Airport/Airport.h"
-#include "Performance/PerformanceCalculator.h"
+#include "Performance/PerformanceCalculatorFlight.h"
+#include "Performance/PerformanceCalculatorTrack4d.h"
 
 namespace GRAPE {
     class OperationsManager;
@@ -14,10 +15,10 @@ namespace GRAPE {
     class RouteOutputGenerator {
     public:
         // Constructors & Destructor (Copy and Move implicitly deleted)
-        explicit RouteOutputGenerator(const CoordinateSystem& Cs) : m_Cs(Cs) {}
+        explicit RouteOutputGenerator(const CoordinateSystem& Cs);
         ~RouteOutputGenerator() = default;
 
-        const RouteOutput& getRouteOutput(const Route& Rte);
+        const RouteOutput& getRouteOutput(const Route* Rte);
     private:
         const CoordinateSystem& m_Cs;
         GrapeMap<const Route*, const RouteOutput> m_RouteOutputs;
@@ -47,7 +48,8 @@ namespace GRAPE {
 
         PerformanceRun& m_PerfRun;
 
-        std::unique_ptr<PerformanceCalculator> m_PerformanceCalculator = nullptr;
+        std::unique_ptr<PerformanceCalculatorFlight> m_FlightsCalculator = nullptr;
+        std::unique_ptr<PerformanceCalculatorTrack4dEmpty> m_Tracks4dCalculator = nullptr;
         std::unique_ptr<RouteOutputGenerator> m_RouteOutputs = nullptr;
 
         std::size_t m_TotalCount = 0;

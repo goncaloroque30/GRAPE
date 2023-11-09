@@ -18,7 +18,7 @@ namespace GRAPE {
     */
     class AircraftsManager : public Manager {
     public:
-        AircraftsManager(const Database& Db, Constraints& Blocks, Doc29PerformanceManager& Doc29Perf, Doc29NoiseManager& Doc29Ns, SFIManager& SFIs, LTOManager& LTOs, OperationsManager& Ops);
+        AircraftsManager(const Database& Db, Constraints& Blocks, Doc29PerformanceManager& Doc29Acft, Doc29NoiseManager& Doc29Ns, SFIManager& SFIs, LTOManager& LTOs, OperationsManager& Ops);
 
         auto& aircrafts() noexcept { return m_Aircrafts; }
         auto& operator()() noexcept { return m_Aircrafts; }
@@ -42,7 +42,7 @@ namespace GRAPE {
         */
         Aircraft& addAircraftE(const std::string& Name);
 
-        void setDoc29Performance(Aircraft& Acft, const Doc29Performance* Doc29Perf);
+        void setDoc29Performance(Aircraft& Acft, const Doc29Aircraft* Doc29Acft);
         void setDoc29Noise(Aircraft& Acft, const Doc29Noise* Doc29Ns);
         void setSFI(Aircraft& Acft, const SFI* Sfi);
         void setLTO(Aircraft& Acft, const LTOEngine* LTOEng);
@@ -64,7 +64,7 @@ namespace GRAPE {
         void loadFromFile();
 
     private:
-        Doc29PerformanceManager& m_Doc29Performances;
+        Doc29PerformanceManager& m_Doc29Aircrafts;
         Doc29NoiseManager& m_Doc29Noises;
         SFIManager& m_SFIFuels;
         LTOManager& m_LTOEngines;

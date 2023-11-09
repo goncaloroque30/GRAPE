@@ -430,20 +430,35 @@ namespace GRAPE {
     void ScenariosManager::update(const EmissionsRun& EmiRun) const {
         const auto& spec = EmiRun.EmissionsRunSpec;
 
+        std::size_t col = 0;
         Statement stmt(m_Db, Schema::emissions_run.queryUpdate({}, { 0, 1, 2 }));
-        stmt.bind(0, EmiRun.parentScenario().Name);
-        stmt.bind(1, EmiRun.parentPerformanceRun().Name);
-        stmt.bind(2, EmiRun.Name);
-        stmt.bind(3, EmissionsModelTypes.toString(spec.EmissionsMdl));
-        std::isinf(spec.FilterMinimumAltitude) ? stmt.bind(4, std::monostate()) : stmt.bind(4, spec.FilterMinimumAltitude);
-        std::isinf(spec.FilterMaximumAltitude) ? stmt.bind(5, std::monostate()) : stmt.bind(5, spec.FilterMaximumAltitude);
-        std::isinf(spec.FilterMinimumCumulativeGroundDistance) ? stmt.bind(6, std::monostate()) : stmt.bind(6, spec.FilterMinimumCumulativeGroundDistance);
-        std::isinf(spec.FilterMaximumCumulativeGroundDistance) ? stmt.bind(7, std::monostate()) : stmt.bind(7, spec.FilterMaximumCumulativeGroundDistance);
-        stmt.bind(8, static_cast<int>(spec.SaveSegmentResults));
+        stmt.bind(col++, EmiRun.parentScenario().Name);
+        stmt.bind(col++, EmiRun.parentPerformanceRun().Name);
+        stmt.bind(col++, EmiRun.Name);
+        stmt.bind(col++, static_cast<int>(spec.CalculateGasEmissions));
+        stmt.bind(col++, static_cast<int>(spec.CalculateParticleEmissions));
+        stmt.bind(col++, EmissionsModelTypes.toString(spec.EmissionsMdl));
+        stmt.bind(col++, static_cast<int>(spec.BFFM2Model));
+        stmt.bind(col++, EmissionsParticleSmokeNumberModelTypes.toString(spec.ParticleSmokeNumberModel));
+        stmt.bind(col++, spec.LTOCycle.at(0));
+        stmt.bind(col++, spec.LTOCycle.at(1));
+        stmt.bind(col++, spec.LTOCycle.at(2));
+        stmt.bind(col++, spec.LTOCycle.at(3));
+        stmt.bind(col++, spec.ParticleEffectiveDensity);
+        stmt.bind(col++, spec.ParticleGeometricStandardDeviation);
+        stmt.bind(col++, spec.ParticleGeometricMeanDiameter.at(0));
+        stmt.bind(col++, spec.ParticleGeometricMeanDiameter.at(1));
+        stmt.bind(col++, spec.ParticleGeometricMeanDiameter.at(2));
+        stmt.bind(col++, spec.ParticleGeometricMeanDiameter.at(3));
+        std::isinf(spec.FilterMinimumAltitude) ? stmt.bind(col++, std::monostate()) : stmt.bind(col++, spec.FilterMinimumAltitude);
+        std::isinf(spec.FilterMaximumAltitude) ? stmt.bind(col++, std::monostate()) : stmt.bind(col++, spec.FilterMaximumAltitude);
+        std::isinf(spec.FilterMinimumCumulativeGroundDistance) ? stmt.bind(col++, std::monostate()) : stmt.bind(col++, spec.FilterMinimumCumulativeGroundDistance);
+        std::isinf(spec.FilterMaximumCumulativeGroundDistance) ? stmt.bind(col++, std::monostate()) : stmt.bind(col++, spec.FilterMaximumCumulativeGroundDistance);
+        stmt.bind(col++, static_cast<int>(spec.SaveSegmentResults));
 
-        stmt.bind(9, EmiRun.parentScenario().Name);
-        stmt.bind(10, EmiRun.parentPerformanceRun().Name);
-        stmt.bind(11, EmiRun.Name);
+        stmt.bind(col++, EmiRun.parentScenario().Name);
+        stmt.bind(col++, EmiRun.parentPerformanceRun().Name);
+        stmt.bind(col++, EmiRun.Name);
 
         stmt.step();
     }
@@ -622,14 +637,16 @@ namespace GRAPE {
         m_Stmt.bind(10, spec.SpeedDeltaSegmentationThreshold);
         m_Stmt.bind(11, PerformanceModelTypes.toString(spec.FlightsPerformanceMdl));
         m_Stmt.bind(12, spec.FlightsDoc29Segmentation);
-        m_Stmt.bind(13, spec.Tracks4dMinimumPoints);
-        m_Stmt.bind(14, static_cast<int>(spec.Tracks4dRecalculateCumulativeGroundDistance));
-        m_Stmt.bind(15, static_cast<int>(spec.Tracks4dRecalculateGroundspeed));
-        m_Stmt.bind(16, static_cast<int>(spec.Tracks4dRecalculateFuelFlow));
-        m_Stmt.bind(17, FuelFlowModelTypes.toString(spec.FuelFlowMdl));
+        m_Stmt.bind(13, static_cast<int>(spec.Tracks4dCalculatePerformance));
+        m_Stmt.bind(14, spec.Tracks4dMinimumPoints);
+        m_Stmt.bind(15, static_cast<int>(spec.Tracks4dRecalculateCumulativeGroundDistance));
+        m_Stmt.bind(16, static_cast<int>(spec.Tracks4dRecalculateGroundspeed));
+        m_Stmt.bind(17, static_cast<int>(spec.Tracks4dRecalculateFuelFlow));
+        m_Stmt.bind(18, FuelFlowModelTypes.toString(spec.FuelFlowMdl));
+        m_Stmt.bind(19, static_cast<int>(spec.FuelFlowLTOAltitudeCorrection));
 
-        m_Stmt.bind(18, PerfRun.parentScenario().Name);
-        m_Stmt.bind(19, PerfRun.Name);
+        m_Stmt.bind(20, PerfRun.parentScenario().Name);
+        m_Stmt.bind(21, PerfRun.Name);
 
         m_Stmt.step();
 
@@ -782,15 +799,19 @@ namespace GRAPE {
                     perfRun.PerfRunSpec.FlightsDoc29Segmentation = static_cast<bool>(stmtPerfRuns.getColumn(12).getInt());
 
                 if (!stmtPerfRuns.isColumnNull(13))
-                    perfRun.PerfRunSpec.Tracks4dMinimumPoints = stmtPerfRuns.getColumn(13);
+                    perfRun.PerfRunSpec.Tracks4dCalculatePerformance = static_cast<bool>(stmtPerfRuns.getColumn(13).getInt());
                 if (!stmtPerfRuns.isColumnNull(14))
-                    perfRun.PerfRunSpec.Tracks4dRecalculateCumulativeGroundDistance = static_cast<bool>(stmtPerfRuns.getColumn(14).getInt());
+                    perfRun.PerfRunSpec.Tracks4dMinimumPoints = stmtPerfRuns.getColumn(14);
                 if (!stmtPerfRuns.isColumnNull(15))
-                    perfRun.PerfRunSpec.Tracks4dRecalculateGroundspeed = static_cast<bool>(stmtPerfRuns.getColumn(15).getInt());
+                    perfRun.PerfRunSpec.Tracks4dRecalculateCumulativeGroundDistance = static_cast<bool>(stmtPerfRuns.getColumn(15).getInt());
                 if (!stmtPerfRuns.isColumnNull(16))
-                    perfRun.PerfRunSpec.Tracks4dRecalculateFuelFlow = static_cast<bool>(stmtPerfRuns.getColumn(16).getInt());
+                    perfRun.PerfRunSpec.Tracks4dRecalculateGroundspeed = static_cast<bool>(stmtPerfRuns.getColumn(16).getInt());
+                if (!stmtPerfRuns.isColumnNull(17))
+                    perfRun.PerfRunSpec.Tracks4dRecalculateFuelFlow = static_cast<bool>(stmtPerfRuns.getColumn(17).getInt());
 
-                perfRun.PerfRunSpec.FuelFlowMdl = FuelFlowModelTypes.fromString(stmtPerfRuns.getColumn(17));
+                perfRun.PerfRunSpec.FuelFlowMdl = FuelFlowModelTypes.fromString(stmtPerfRuns.getColumn(18));
+                if (!stmtPerfRuns.isColumnNull(19))
+                    perfRun.PerfRunSpec.FuelFlowLTOAltitudeCorrection = static_cast<bool>(stmtPerfRuns.getColumn(19).getInt());
 
                 // Atmospheres
                 Statement stmtAtms(m_Db, Schema::performance_run_atmospheres.querySelect({}, { 0, 1 }));
@@ -802,7 +823,7 @@ namespace GRAPE {
                     const auto timeOpt = utcStringToTime(timeStr);
                     if (!timeOpt)
                     {
-                        Log::database()->warn("Loading amtospheres of performance run '{}' of scenario run '{}'. Invalid time '{}'.", perfRunName, scenName, timeStr);
+                        Log::database()->warn("Loading atmospheres of performance run '{}' of scenario run '{}'. Invalid time '{}'.", perfRunName, scenName, timeStr);
                         stmtAtms.step();
                         continue;
                     }
@@ -1113,31 +1134,46 @@ namespace GRAPE {
                 }
 
                 // Emissions Runs
-                Statement stmtEmiRuns(m_Db, Schema::emissions_run.querySelect({ 2, 3, 4, 5, 6, 7, 8 }, { 0, 1 }));
+                Statement stmtEmiRuns(m_Db, Schema::emissions_run.querySelect({}, { 0, 1 }));
                 stmtEmiRuns.bindValues(scenName, perfRunName);
                 stmtEmiRuns.step();
                 while (stmtEmiRuns.hasRow())
                 {
-                    const std::string emiRunName = stmtEmiRuns.getColumn(0);
+                    std::size_t col = 2;
+                    const std::string emiRunName = stmtEmiRuns.getColumn(col++);
                     auto [emiRun, emiRunAdded] = perfRun.EmissionsRuns.add(emiRunName, perfRun, emiRunName);
                     GRAPE_ASSERT(emiRunAdded);
 
-                    emiRun.EmissionsRunSpec.EmissionsMdl = EmissionsModelTypes.fromString(stmtEmiRuns.getColumn(1));
-                    if (!stmtEmiRuns.isColumnNull(2))
-                        emiRun.EmissionsRunSpec.FilterMinimumAltitude = stmtEmiRuns.getColumn(2);
-                    if (!stmtEmiRuns.isColumnNull(3))
-                        emiRun.EmissionsRunSpec.FilterMaximumAltitude = stmtEmiRuns.getColumn(3);
-                    if (!stmtEmiRuns.isColumnNull(4))
-                        emiRun.EmissionsRunSpec.FilterMinimumCumulativeGroundDistance = stmtEmiRuns.getColumn(4);
-                    if (!stmtEmiRuns.isColumnNull(5))
-                        emiRun.EmissionsRunSpec.FilterMaximumCumulativeGroundDistance = stmtEmiRuns.getColumn(5);
-                    emiRun.EmissionsRunSpec.SaveSegmentResults = static_cast<bool>(stmtEmiRuns.getColumn(6).getInt());
+                    emiRun.EmissionsRunSpec.CalculateGasEmissions = static_cast<bool>(stmtEmiRuns.getColumn(col++).getInt());
+                    emiRun.EmissionsRunSpec.CalculateParticleEmissions = static_cast<bool>(stmtEmiRuns.getColumn(col++).getInt());
+                    emiRun.EmissionsRunSpec.EmissionsMdl = EmissionsModelTypes.fromString(stmtEmiRuns.getColumn(col++));
+                    emiRun.EmissionsRunSpec.BFFM2Model = static_cast<bool>(stmtEmiRuns.getColumn(col++).getInt());
+                    emiRun.EmissionsRunSpec.ParticleSmokeNumberModel = EmissionsParticleSmokeNumberModelTypes.fromString(stmtEmiRuns.getColumn(col++));
+                    emiRun.EmissionsRunSpec.LTOCycle.at(0) = stmtEmiRuns.getColumn(col++);
+                    emiRun.EmissionsRunSpec.LTOCycle.at(1) = stmtEmiRuns.getColumn(col++);
+                    emiRun.EmissionsRunSpec.LTOCycle.at(2) = stmtEmiRuns.getColumn(col++);
+                    emiRun.EmissionsRunSpec.LTOCycle.at(3) = stmtEmiRuns.getColumn(col++);
+                    emiRun.EmissionsRunSpec.ParticleEffectiveDensity = stmtEmiRuns.getColumn(col++);
+                    emiRun.EmissionsRunSpec.ParticleGeometricStandardDeviation = stmtEmiRuns.getColumn(col++);
+                    emiRun.EmissionsRunSpec.ParticleGeometricMeanDiameter.at(0) = stmtEmiRuns.getColumn(col++);
+                    emiRun.EmissionsRunSpec.ParticleGeometricMeanDiameter.at(1) = stmtEmiRuns.getColumn(col++);
+                    emiRun.EmissionsRunSpec.ParticleGeometricMeanDiameter.at(2) = stmtEmiRuns.getColumn(col++);
+                    emiRun.EmissionsRunSpec.ParticleGeometricMeanDiameter.at(3) = stmtEmiRuns.getColumn(col++);
+                    if (!stmtEmiRuns.isColumnNull(col++))
+                        emiRun.EmissionsRunSpec.FilterMinimumAltitude = stmtEmiRuns.getColumn(col - 1);
+                    if (!stmtEmiRuns.isColumnNull(col++))
+                        emiRun.EmissionsRunSpec.FilterMaximumAltitude = stmtEmiRuns.getColumn(col - 1);
+                    if (!stmtEmiRuns.isColumnNull(col++))
+                        emiRun.EmissionsRunSpec.FilterMinimumCumulativeGroundDistance = stmtEmiRuns.getColumn(col - 1);
+                    if (!stmtEmiRuns.isColumnNull(col++))
+                        emiRun.EmissionsRunSpec.FilterMaximumCumulativeGroundDistance = stmtEmiRuns.getColumn(col - 1);
+                    emiRun.EmissionsRunSpec.SaveSegmentResults = static_cast<bool>(stmtEmiRuns.getColumn(col++).getInt());
 
                     // Job
                     emiRun.createJob(m_Db, m_Blocks);
 
                     // Outputs
-                    Statement stmtEmiOut(m_Db, Schema::emissions_run_output.querySelect({ 3, 4, 5, 6 }, { 0, 1, 2 }));
+                    Statement stmtEmiOut(m_Db, Schema::emissions_run_output.querySelect({}, { 0, 1, 2 }));
                     stmtEmiOut.bindValues(scenName, perfRunName, emiRunName);
                     stmtEmiOut.step();
                     if (!perfRunReset && stmtEmiOut.hasRow())
@@ -1145,28 +1181,32 @@ namespace GRAPE {
                         emiRun.job()->queue();
                         emiRun.job()->setFinished();
 
-                        emiRun.output().m_TotalFuel = stmtEmiOut.getColumn(0);
-                        emiRun.output().m_TotalEmissions.HC = stmtEmiOut.getColumn(1);
-                        emiRun.output().m_TotalEmissions.CO = stmtEmiOut.getColumn(2);
-                        emiRun.output().m_TotalEmissions.NOx = stmtEmiOut.getColumn(3);
+                        emiRun.output().m_TotalFuel = stmtEmiOut.getColumn(3);
+                        emiRun.output().m_TotalEmissions.HC = stmtEmiOut.getColumn(4);
+                        emiRun.output().m_TotalEmissions.CO = stmtEmiOut.getColumn(5);
+                        emiRun.output().m_TotalEmissions.NOx = stmtEmiOut.getColumn(6);
+                        emiRun.output().m_TotalEmissions.nvPM = stmtEmiOut.getColumn(7);
+                        emiRun.output().m_TotalEmissions.nvPMNumber = stmtEmiOut.getColumn(8);
 
                         // Operation Outputs
-                        Statement stmtEmiOpOut(m_Db, Schema::emissions_run_output_operations.querySelect({ 3, 4, 5, 6, 7, 8, 9 }, { 0, 1, 2 }));
+                        Statement stmtEmiOpOut(m_Db, Schema::emissions_run_output_operations.querySelect({}, { 0, 1, 2 }));
                         stmtEmiOpOut.bindValues(scenName, perfRunName, emiRunName);
                         stmtEmiOpOut.step();
                         while (stmtEmiOpOut.hasRow())
                         {
-                            const std::string opId = stmtEmiOpOut.getColumn(0);
-                            OperationType op = OperationTypes.fromString(stmtEmiOpOut.getColumn(1));
-                            Operation::Type opType = Operation::Types.fromString(stmtEmiOpOut.getColumn(2));
+                            const std::string opId = stmtEmiOpOut.getColumn(3);
+                            OperationType op = OperationTypes.fromString(stmtEmiOpOut.getColumn(4));
+                            Operation::Type opType = Operation::Types.fromString(stmtEmiOpOut.getColumn(5));
 
-                            const double fuel = stmtEmiOpOut.getColumn(3);
-                            const double hc = stmtEmiOpOut.getColumn(4);
-                            const double co = stmtEmiOpOut.getColumn(5);
-                            const double nox = stmtEmiOpOut.getColumn(6);
+                            const double fuel = stmtEmiOpOut.getColumn(6);
+                            const double hc = stmtEmiOpOut.getColumn(7);
+                            const double co = stmtEmiOpOut.getColumn(8);
+                            const double nox = stmtEmiOpOut.getColumn(9);
+                            const double nvpm = stmtEmiOpOut.getColumn(10);
+                            const double nvpmNumber = stmtEmiOpOut.getColumn(11);
 
                             EmissionsOperationOutput opOut;
-                            opOut.setTotals(fuel, EmissionValues(hc, co, nox));
+                            opOut.setTotals(fuel, EmissionValues(hc, co, nox, nvpm, nvpmNumber));
 
                             const Operation* studyOp = nullptr;
                             switch (op)

@@ -5,18 +5,22 @@
 namespace GRAPE {
     struct EmissionValues {
         EmissionValues() = default;
-        EmissionValues(double HCIn, double COIn, double NOxIn) : HC(HCIn), CO(COIn), NOx(NOxIn) {}
+        EmissionValues(double HCIn, double COIn, double NOxIn, double nvPMIn, double nvPMCountIn) : HC(HCIn), CO(COIn), NOx(NOxIn), nvPM(nvPMIn), nvPMNumber(nvPMCountIn) {}
 
         EmissionValues& operator+=(const EmissionValues& Vals) {
             HC += Vals.HC;
             CO += Vals.CO;
             NOx += Vals.NOx;
+            nvPM += Vals.nvPM;
+            nvPMNumber += Vals.nvPMNumber;
             return *this;
         }
 
         double HC = 0.0;
         double CO = 0.0;
         double NOx = 0.0;
+        double nvPM = 0.0;
+        double nvPMNumber = 0.0;
     };
 
     struct EmissionsSegmentOutput {

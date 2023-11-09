@@ -358,6 +358,7 @@ MigrationBackup/
 **/.*
 !vendor/*
 !.editorconfig
+!.github
 !.gitignore
 !.gitsubmodules
 

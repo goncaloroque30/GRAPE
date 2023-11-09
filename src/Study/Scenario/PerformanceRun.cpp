@@ -30,12 +30,18 @@ namespace GRAPE {
         {
             if (PerfRunSpec.FlightsPerformanceMdl == PerformanceModel::Doc29)
             {
+                if (!op.get().hasRoute())
+                {
+                    Log::dataLogic()->error("Running performance run '{}' of scenario '{}' with Doc29 performance model. Arrival flight '{}' has no arrival route selected.", Name, parentScenario().Name, op.get().Name);
+                    valid = false;
+                }
+
                 if (!op.get().aircraft().validDoc29Performance())
                 {
                     Log::dataLogic()->error("Running performance run '{}' of scenario '{}' with Doc29 performance model. Arrival flight '{}' with aircraft '{}' has no Doc29 aircraft selected.", Name, parentScenario().Name, op.get().Name, op.get().aircraft().Name);
                     valid = false;
                 }
-                else if (!op.get().doc29ProfileSelected())
+                else if (!op.get().hasDoc29Profile())
                 {
                     Log::dataLogic()->error("Running performance run '{}' of scenario '{}' with Doc29 performance model. Arrival flight '{}' with aircraft '{}' has no Doc29 profile selected.", Name, parentScenario().Name, op.get().Name, op.get().aircraft().Name);
                     valid = false;
@@ -63,12 +69,18 @@ namespace GRAPE {
         {
             if (PerfRunSpec.FlightsPerformanceMdl == PerformanceModel::Doc29)
             {
-                if (!op.get().aircraft().Doc29Perf)
+                if (!op.get().hasRoute())
+                {
+                    Log::dataLogic()->error("Running performance run '{}' of scenario '{}' with Doc29 performance model. Departure flight '{}' has no departure route selected.", Name, parentScenario().Name, op.get().Name);
+                    valid = false;
+                }
+
+                if (!op.get().aircraft().Doc29Acft)
                 {
                     Log::dataLogic()->error("Running performance run '{}' of scenario '{}' with Doc29 performance model. Departure flight '{}' with aircraft '{}' has no Doc29 aircraft selected.", Name, parentScenario().Name, op.get().Name, op.get().aircraft().Name);
                     valid = false;
                 }
-                else if (!op.get().doc29ProfileSelected())
+                else if (!op.get().hasDoc29Profile())
                 {
                     Log::dataLogic()->error("Running performance run '{}' of scenario '{}' with Doc29 performance model. Departure flight '{}' with aircraft '{}' has no Doc29 profile selected.", Name, parentScenario().Name, op.get().Name, op.get().aircraft().Name);
                     valid = false;

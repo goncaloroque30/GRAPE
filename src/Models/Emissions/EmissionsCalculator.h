@@ -18,17 +18,19 @@ namespace GRAPE {
         virtual ~EmissionsCalculator() = default;
 
         /**
-        * @brief Base implementation. Calculates fuel only. All emissions are 0.
+        * @brief Implement in concrete classes
         */
-        [[nodiscard]] virtual EmissionsOperationOutput calculateEmissions(const Operation& Op, const PerformanceOutput& PerfOut);
+        [[nodiscard]] virtual EmissionsOperationOutput calculateEmissions(const Operation& Op, const PerformanceOutput& PerfOut) const = 0;
 
         /**
         * @brief Base implementation. Subclasses may implement and use the data of LTOEngines as necessary.
         */
-        virtual void addLTOEngine(const LTOEngine*) {}
+        virtual void addLTOEngine(const LTOEngine* LTOEng);
     protected:
         const PerformanceSpecification& m_PerfSpec;
         const EmissionsSpecification& m_EmissionsSpec;
+
+        GrapeMap<const LTOEngine*, LTOEngine> m_LTOEngines;
     protected:
         [[nodiscard]] bool pointAfterDistanceLimits(double CumulativeGroundDistance) const;
         [[nodiscard]] bool segmentInDistanceLimits(double StartCumulativeGroundDistance, double EndCumulativeGroundDistance) const;

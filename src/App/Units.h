@@ -101,6 +101,7 @@ namespace GRAPE {
 
         enum class Force : unsigned {
             Newtons = 0,
+            Kilonewtons,
             PoundsOfForce,
             Poundals,
         };

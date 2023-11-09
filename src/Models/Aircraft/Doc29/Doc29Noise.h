@@ -228,5 +228,15 @@ namespace GRAPE {
         * @return True if all NPD maps have at least two entries.
         */
         [[nodiscard]] bool valid() const;
+
+        /**
+        * @return True if all NPD maps for arrivals have at least two entries.
+        */
+        [[nodiscard]] bool validArrival() const;
+
+        /**
+        * @return True if all NPD maps for departure have at least two entries.
+        */
+        [[nodiscard]] bool validDeparture() const;
     };
 }

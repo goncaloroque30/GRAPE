@@ -6,9 +6,9 @@
 #include "PerformanceSpecification.h"
 #include "FuelFlow/FuelFlowCalculator.h"
 
-#include "Operation/Operations.h"
-
 namespace GRAPE {
+    class Operation;
+
     /**
     * @brief Base class for calculating the PerformanceOutput for any given Operation.
     */
@@ -16,19 +16,6 @@ namespace GRAPE {
     public:
         explicit PerformanceCalculator(const PerformanceSpecification& Spec);
         virtual ~PerformanceCalculator() = default;
-
-        [[nodiscard]] virtual std::optional<PerformanceOutput> calculate(const FlightArrival&, const RouteOutput&) const = 0;
-        [[nodiscard]] virtual std::optional<PerformanceOutput> calculate(const FlightDeparture&, const RouteOutput&) const = 0;
-
-        /**
-        * @brief Transforms a Track4dArrival into a PerformanceOutput.
-        */
-        [[nodiscard]] std::optional<PerformanceOutput> calculate(const Track4dArrival& Track4dArr) const;
-
-        /**
-        * @brief Transforms a Track4dDeparture into a PerformanceOutput.
-        */
-        [[nodiscard]] std::optional<PerformanceOutput> calculate(const Track4dDeparture& Track4dDep) const;
 
         /**
          * @brief Give caller access to fuel flow calculator. May be needed in order to prepare calculations.

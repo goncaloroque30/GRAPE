@@ -4,7 +4,8 @@
 
 #include "Doc29NoiseGenerator.h"
 
-#include "Base/Base.h"
+#include "Base/CoordinateSystem.h"
+#include "Base/Math.h"
 
 namespace GRAPE {
     namespace {
@@ -488,7 +489,7 @@ namespace GRAPE {
             arrNoise.applyAtmosphericAbsorption(saeArp5534);
             depNoise.applyAtmosphericAbsorption(saeArp5534);
 
-            /// Commented cases fail. Reason for that might be due to rounding during the calculation of the reference values.
+            /// Commented cases fail. Reason for that might be due to rounding errors during the calculation of the reference values.
             const auto& arrDeltas = arrNoise.deltas();
             CHECK_EQ(round(arrDeltas.at(0), 1), doctest::Approx(0.0).epsilon(Constants::PrecisionTest));
             //CHECK_EQ(round(arrDeltas.at(1), 1), doctest::Approx(0.2).epsilon(Constants::PrecisionTest)); 
@@ -520,7 +521,7 @@ namespace GRAPE {
             arrNoise.applyAtmosphericAbsorption(saeArp866);
             depNoise.applyAtmosphericAbsorption(saeArp866);
 
-            /// Commented cases fail. Reason for that might be due to rounding during the calculation of the reference values.
+            /// Commented cases fail. Reason for that might be due to rounding errors during the calculation of the reference values.
             const auto& arrDeltas = arrNoise.deltas();
             CHECK_EQ(round(arrDeltas.at(0), 1), doctest::Approx(0.1).epsilon(Constants::PrecisionTest));
             //CHECK_EQ(round(arrDeltas.at(1), 1), doctest::Approx(0.3).epsilon(Constants::PrecisionTest)); 

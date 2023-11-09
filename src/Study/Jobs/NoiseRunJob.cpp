@@ -105,7 +105,7 @@ namespace GRAPE {
         {
             m_NoiseRun.m_NoiseRunOutput->finishCumulative();
             m_Status.store(Status::Finished);
-            Log::study()->info(std::format("Finished noise run '{}' of performance run '{}' of scenario '{}'. Time elapsed: {:%T}.", m_NoiseRun.Name, m_NoiseRun.parentPerformanceRun().Name, m_NoiseRun.parentScenario().Name, nsRunTimer.ellapsedDuration()));
+            Log::study()->info(std::format("Finished noise run '{}' of performance run '{}' of scenario '{}'. Time elapsed: {:%T}.", m_NoiseRun.Name, m_NoiseRun.parentPerformanceRun().Name, m_NoiseRun.parentScenario().Name, nsRunTimer.elapsedDuration()));
 
         }
     }

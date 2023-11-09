@@ -22,7 +22,7 @@ target_include_directories(iconsfontawesome INTERFACE "${ICONS_FONT_AWESOME_HELP
 add_library(iconsfontawesome::iconsfontawesome ALIAS iconsfontawesome)
 
 # GeographicLib
-add_subdirectory(geographiclib EXCLUDE_FROM_ALL)
+add_subdirectory(geographiclib EXCLUDE_FROM_ALL) # No options to build only specific files provided
 
 # sqlite
 set(SQLITE_DIR "${GRAPE_DIR_VENDOR}/sqlite")

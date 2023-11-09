@@ -107,7 +107,7 @@ namespace GRAPE {
         void setWindDirection(double WindDirection) noexcept;
 
         /*
-        * @brief Sets #m_WindSpeed to Headwind and #m_WindDirection to nan. Calling headwind(double) after returns a constant heaadwind and crosswind(double) returns always 0.0.
+        * @brief Sets #m_WindSpeed to Headwind and #m_WindDirection to nan. Calling headwind(double) after returns a constant headwind and crosswind(double) returns always 0.0.
         * ASSERT not nan Headwind.
         */
         void setConstantHeadwind(double Headwind) noexcept;

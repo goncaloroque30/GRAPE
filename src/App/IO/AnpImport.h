@@ -53,6 +53,7 @@ namespace GRAPE {
             };
 
 
+            std::vector<std::string> m_PistonAircraft;
             enum class PowerParameter {
                 Pounds = 0, Percentage,
             };

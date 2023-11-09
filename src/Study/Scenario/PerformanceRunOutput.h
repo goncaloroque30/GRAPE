@@ -22,9 +22,10 @@ namespace GRAPE {
         // Access Data (Not Thread Safe)
         [[nodiscard]] auto arrivalOutputs() const { return m_ArrivalOutputs; }
         [[nodiscard]] auto departureOutputs() const { return m_DepartureOutputs; }
-        [[nodiscard]] std::size_t size() const { return m_ArrivalOutputs.size() + m_DepartureOutputs.size(); }
 
         // Status Checks (Not thread Safe)
+        [[nodiscard]] std::size_t size() const { return m_ArrivalOutputs.size() + m_DepartureOutputs.size(); }
+        [[nodiscard]] bool empty() const { return m_ArrivalOutputs.empty() && m_DepartureOutputs.empty(); }
         [[nodiscard]] bool containsArrival(const OperationArrival& Op) const;
         [[nodiscard]] bool containsDeparture(const OperationDeparture& Op) const;
 

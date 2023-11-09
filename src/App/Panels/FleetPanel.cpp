@@ -62,13 +62,11 @@ namespace GRAPE {
             ImGui::EndPopup();
         }
 
-        if (UI::beginTable("Fleet", 10))
+        if (UI::beginTable("Fleet", 8))
         {
             ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_NoHide);
             ImGui::TableSetupColumn("# Engines", ImGuiTableColumnFlags_NoHide);
-            ImGui::TableSetupColumn(std::format("Maximum Sea Level Static Thrust ({})", set.ThrustUnits.shortName()).c_str(), ImGuiTableColumnFlags_NoHide);
-            ImGui::TableSetupColumn(std::format("Engine Breakpoint Temperature ({})", set.TemperatureUnits.shortName()).c_str());
-            ImGui::TableSetupColumn("Doc29 Performance", ImGuiTableColumnFlags_NoHide);
+            ImGui::TableSetupColumn("Doc29 Aircraft", ImGuiTableColumnFlags_NoHide);
             ImGui::TableSetupColumn("SFI", ImGuiTableColumnFlags_NoHide);
             ImGui::TableSetupColumn("LTO Engine", ImGuiTableColumnFlags_NoHide);
             ImGui::TableSetupColumn("Doc29 Noise", ImGuiTableColumnFlags_NoHide);
@@ -116,30 +114,16 @@ namespace GRAPE {
                 if (ImGui::IsItemClicked())
                     select(acft);
 
-                // Maximum Sea Level Static Thrust
+                // Doc29 Aircraft
                 UI::tableNextColumn();
-                if (UI::inputDouble("Maximum sea level static thrust", acft.MaximumSeaLevelStaticThrust, 1.0, Constants::NaN, set.ThrustUnits, false))
-                    study.Aircrafts.update(acft);
-                if (ImGui::IsItemClicked())
-                    select(acft);
-
-                // Engine Breakpoint Temperature
-                UI::tableNextColumn();
-                if (UI::inputDouble("Engine Breakpoint Temperature", acft.EngineBreakpointTemperature, 0.0, Constants::NaN, set.TemperatureUnits, false))
-                    study.Aircrafts.update(acft);
-                if (ImGui::IsItemClicked())
-                    select(acft);
-
-                // Doc29 Performance
-                UI::tableNextColumn();
-                const char* currDoc29PerfName = acft.validDoc29Performance() ? acft.Doc29Perf->Name.c_str() : "";
-                if (ImGui::BeginCombo("##Doc29Performance", currDoc29PerfName))
+                const char* currDoc29AcftName = acft.validDoc29Performance() ? acft.Doc29Acft->Name.c_str() : "";
+                if (ImGui::BeginCombo("##Doc29Aircraft", currDoc29AcftName))
                 {
-                    for (const auto& [doc29PerfId, doc29Perf] : study.Doc29Performances())
+                    for (const auto& [doc29AcftId, doc29Acft] : study.Doc29Aircrafts())
                     {
-                        const bool selected = acft.validDoc29Performance() && doc29Perf.get() == acft.Doc29Perf;
-                        if (ImGui::Selectable(doc29PerfId.c_str(), selected))
-                            study.Aircrafts.setDoc29Performance(acft, doc29Perf.get());
+                        const bool selected = acft.validDoc29Performance() && &doc29Acft == acft.Doc29Acft;
+                        if (ImGui::Selectable(doc29AcftId.c_str(), selected))
+                            study.Aircrafts.setDoc29Performance(acft, &doc29Acft);
 
                         if (selected)
                             ImGui::SetItemDefaultFocus();

@@ -82,7 +82,43 @@ namespace GRAPE {
         return updated;
     }
 
-    void LTOManager::update(const LTOEngine& LtoEng) const noexcept { m_Db.update(Schema::lto_fuel_emissions, std::make_tuple(LtoEng.Name, LtoEng.FuelFlows.at(0), LtoEng.FuelFlows.at(1), LtoEng.FuelFlows.at(2), LtoEng.FuelFlows.at(3), LtoEng.FuelFlowCorrectionFactors.at(0), LtoEng.FuelFlowCorrectionFactors.at(1), LtoEng.FuelFlowCorrectionFactors.at(2), LtoEng.FuelFlowCorrectionFactors.at(3), LtoEng.EmissionIndexesHC.at(0), LtoEng.EmissionIndexesHC.at(1), LtoEng.EmissionIndexesHC.at(2), LtoEng.EmissionIndexesHC.at(3), LtoEng.EmissionIndexesCO.at(0), LtoEng.EmissionIndexesCO.at(1), LtoEng.EmissionIndexesCO.at(2), LtoEng.EmissionIndexesCO.at(3), LtoEng.EmissionIndexesNOx.at(0), LtoEng.EmissionIndexesNOx.at(1), LtoEng.EmissionIndexesNOx.at(2), LtoEng.EmissionIndexesNOx.at(3)), { 0 }, std::make_tuple(LtoEng.Name)); }
+    void LTOManager::update(const LTOEngine& LtoEng) const noexcept {
+        Statement stmt(m_Db, Schema::lto_fuel_emissions.queryUpdate({}, { 0 }));
+
+        stmt.bind(0, LtoEng.Name);
+        std::size_t i = 0;
+
+        stmt.bind(++i, LtoEng.MaximumSeaLevelStaticThrust);
+
+        for (const auto fuelFlow : LtoEng.FuelFlows)
+            stmt.bind(++i, fuelFlow);
+        for (const auto fuelFlowCorr : LtoEng.FuelFlowCorrectionFactors)
+            stmt.bind(++i, fuelFlowCorr);
+
+        for (const auto hc : LtoEng.EmissionIndexesHC)
+            stmt.bind(++i, hc);
+        for (const auto co : LtoEng.EmissionIndexesCO)
+            stmt.bind(++i, co);
+        for (const auto nox : LtoEng.EmissionIndexesNOx)
+            stmt.bind(++i, nox);
+
+        stmt.bind(++i, static_cast<int>(LtoEng.MixedNozzle));
+        stmt.bind(++i, LtoEng.BypassRatio);
+
+        for (const auto afr : LtoEng.AirFuelRatios)
+            stmt.bind(++i, afr);
+
+        for (const auto sn : LtoEng.SmokeNumbers)
+            std::isnan(sn) ? stmt.bind(++i, std::monostate()) : stmt.bind(++i, sn);
+        for (const auto nvpm : LtoEng.EmissionIndexesNVPM)
+            std::isnan(nvpm) ? stmt.bind(++i, std::monostate()) : stmt.bind(++i, nvpm);
+        for (const auto nvpmNumber : LtoEng.EmissionIndexesNVPMNumber)
+            std::isnan(nvpmNumber) ? stmt.bind(++i, std::monostate()) : stmt.bind(++i, nvpmNumber);
+
+        stmt.bind(++i, LtoEng.Name);
+
+        stmt.step();
+    }
 
     void LTOManager::loadFromFile() {
         Statement stmt(m_Db, Schema::lto_fuel_emissions.querySelect());
@@ -92,27 +128,47 @@ namespace GRAPE {
             const std::string name = stmt.getColumn(0);
             auto [lto, added] = m_LTOEngines.add(name, name);
             GRAPE_ASSERT(added);
-            lto.FuelFlows.at(0) = stmt.getColumn(1);
-            lto.FuelFlows.at(1) = stmt.getColumn(2);
-            lto.FuelFlows.at(2) = stmt.getColumn(3);
-            lto.FuelFlows.at(3) = stmt.getColumn(4);
-            lto.FuelFlowCorrectionFactors.at(0) = stmt.getColumn(5);
-            lto.FuelFlowCorrectionFactors.at(1) = stmt.getColumn(6);
-            lto.FuelFlowCorrectionFactors.at(2) = stmt.getColumn(7);
-            lto.FuelFlowCorrectionFactors.at(3) = stmt.getColumn(8);
-            lto.EmissionIndexesHC.at(0) = stmt.getColumn(9);
-            lto.EmissionIndexesHC.at(1) = stmt.getColumn(10);
-            lto.EmissionIndexesHC.at(2) = stmt.getColumn(11);
-            lto.EmissionIndexesHC.at(3) = stmt.getColumn(12);
-            lto.EmissionIndexesCO.at(0) = stmt.getColumn(13);
-            lto.EmissionIndexesCO.at(1) = stmt.getColumn(14);
-            lto.EmissionIndexesCO.at(2) = stmt.getColumn(15);
-            lto.EmissionIndexesCO.at(3) = stmt.getColumn(16);
-            lto.EmissionIndexesNOx.at(0) = stmt.getColumn(17);
-            lto.EmissionIndexesNOx.at(1) = stmt.getColumn(18);
-            lto.EmissionIndexesNOx.at(2) = stmt.getColumn(19);
-            lto.EmissionIndexesNOx.at(3) = stmt.getColumn(20);
 
+            std::size_t i = 0;
+
+            lto.MaximumSeaLevelStaticThrust = stmt.getColumn(++i);
+
+            for (auto& fuelFlow : lto.FuelFlows)
+                fuelFlow = stmt.getColumn(++i);
+            for (auto& fuelFlowCorr : lto.FuelFlowCorrectionFactors)
+                fuelFlowCorr = stmt.getColumn(++i);
+
+            for (auto& hc : lto.EmissionIndexesHC)
+                hc = stmt.getColumn(++i);
+            for (auto& co : lto.EmissionIndexesCO)
+                co = stmt.getColumn(++i);
+            for (auto& nox : lto.EmissionIndexesNOx)
+                nox = stmt.getColumn(++i);
+
+            lto.MixedNozzle = static_cast<bool>(stmt.getColumn(++i).getInt());
+            lto.BypassRatio = stmt.getColumn(++i);
+
+            for (auto& afr : lto.AirFuelRatios)
+                afr = stmt.getColumn(++i);
+
+            for (auto& sn : lto.SmokeNumbers)
+            {
+                ++i;
+                if (!stmt.isColumnNull(i))
+                    sn = stmt.getColumn(i);
+            }
+            for (auto& nvpm : lto.EmissionIndexesNVPM)
+            {
+                ++i;
+                if (!stmt.isColumnNull(i))
+                    nvpm = stmt.getColumn(i);
+            }
+            for (auto& nvpmNumber : lto.EmissionIndexesNVPMNumber)
+            {
+                ++i;
+                if (!stmt.isColumnNull(i))
+                    nvpmNumber = stmt.getColumn(i);
+            }
             stmt.step();
         }
     }

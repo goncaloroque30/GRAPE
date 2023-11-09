@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "Base/Base.h"
+#include "Base/BaseModels.h"
+#include "Base/CoordinateSystem.h"
 #include "Base/AtmosphereSeries.h"
 
 namespace GRAPE {
@@ -29,6 +30,7 @@ namespace GRAPE {
         bool FlightsDoc29Segmentation = true;
 
         // Tracks 4D
+        bool Tracks4dCalculatePerformance = true;
         int Tracks4dMinimumPoints = 1;
         bool Tracks4dRecalculateCumulativeGroundDistance = false;
         bool Tracks4dRecalculateGroundspeed = false;
@@ -36,6 +38,7 @@ namespace GRAPE {
 
         // Fuel Flow
         FuelFlowModel FuelFlowMdl = FuelFlowModel::None;
+        bool FuelFlowLTOAltitudeCorrection = true;
 
         /**
         * @brief Throwing set method for FilterMinimumAltitude.
