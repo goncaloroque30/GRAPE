@@ -1,0 +1,85 @@
+{
+    "version": 5,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 24,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "MSVC",
+            "generator": "Ninja Multi-Config",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "installDir": "${sourceDir}/out/install/${presetName}",
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+            "cacheVariables": {
+                "CMAKE_CONFIGURATION_TYPES": "Debug;Release;Distribution",
+                "CMAKE_DEFAULT_BUILD_TYPE": "Distribution",
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+                "CMAKE_C_COMPILER": "cl",
+                "CMAKE_CXX_COMPILER": "cl"
+            },
+            "vendor": {
+                "microsoft.com/VisualStudioSettings/CMake/1.0": {
+                    "intelliSenseMode": "windows-msvc-x64"
+                }
+            }
+        },
+        {
+            "name": "MSVC Tests",
+            "inherits": "MSVC",
+            "cacheVariables": {
+                "GRAPE_BUILD_TESTS": true
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "MSVC Debug",
+            "displayName": "Debug",
+            "configurePreset": "MSVC",
+            "configuration": "Debug"
+        },
+        {
+            "name": "MSVC Release",
+            "displayName": "Release",
+            "configurePreset": "MSVC",
+            "configuration": "Release"
+        },
+        {
+            "name": "MSVC Distribution",
+            "displayName": "Distribution",
+            "configurePreset": "MSVC",
+            "configuration": "Distribution"
+        },
+        {
+            "name": "MSVC Tests Debug",
+            "displayName": "Debug",
+            "configurePreset": "MSVC Tests",
+            "configuration": "Debug"
+        },
+        {
+            "name": "MSVC Tests Release",
+            "displayName": "Release",
+            "configurePreset": "MSVC Tests",
+            "configuration": "Release"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "MSVC Tests Debug",
+            "displayName": "Debug",
+            "configurePreset": "MSVC Tests",
+            "configuration": "Debug"
+        },
+        {
+            "name": "MSVC Tests Release",
+            "displayName": "Release",
+            "configurePreset": "MSVC Tests",
+            "configuration": "Release"
+        }
+    ]
+}

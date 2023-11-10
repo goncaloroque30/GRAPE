@@ -1,0 +1,12 @@
+ACFT_ID,Profile_ID,Step Number,Step Type,Flap_ID,Start Altitude(ft),Start CAS (kt),Descent Angle (deg),Touchdown Roll (ft),Distance (ft),Start Thrust
+A320-232,DEFAULT,1,Descend-Idle,,6000,250,2.8,,,
+A320-232,DEFAULT,2,Level-Idle,,3000,250,,,20003.3,
+A320-232,DEFAULT,3,Level-Idle,,3000,198.7,,,4629.3,
+A320-232,DEFAULT,4,Descend-Idle,,3000,183.5,3,,,
+A320-232,DEFAULT,5,Descend-Idle,,2613,172.8,3,,,
+A320-232,DEFAULT,6,Descend-Idle,,2033,142.2,3,,,
+A320-232,DEFAULT,7,Descend,FULL_D,1819,133.8,3,,,
+A320-232,DEFAULT,8,Descend,FULL_D,50,133.8,3,,,
+A320-232,DEFAULT,9,Land,FULL_D,,,,311,,
+A320-232,DEFAULT,10,Decelerate,,,130.8,,,2799.4,40
+A320-232,DEFAULT,11,Decelerate,,,30,,,0,10

@@ -1,0 +1,9 @@
+Scenario ID,ID,Operation,Type
+Reference Scenario,JETFAC,Arrival,Flight
+Reference Scenario,JETFAS,Arrival,Flight
+Reference Scenario,JETWAC,Arrival,Flight
+Reference Scenario,JETWAS,Arrival,Flight
+Reference Scenario,JETFDC,Departure,Flight
+Reference Scenario,JETFDS,Departure,Flight
+Reference Scenario,JETWDC,Departure,Flight
+Reference Scenario,JETWDS,Departure,Flight

@@ -1,0 +1,7 @@
+Aircraft Identifier,Thurst Rating,E (lb),F (lb/kt),Ga (lb/ft),Gb (lb/ft2),H (lb/degC),K1 (lb/EPR),K2 (lb/EPR2),K3 (lb/(N1/sqrt(theta))),K4 (lb/(N1/sqrt(theta))2)
+JETF,MaxClimb,16000,-4.0,0.4,-1e-05,0,,,,
+JETF,IdleApproach,1100,-6.5,0.18,0.0,0,,,,
+JETF,MaxTakeOff,25000,-25.0,0.3,1e-05,0,,,,
+JETW,MaxClimb,16000,-4.0,0.4,-1e-05,0,,,,
+JETW,IdleApproach,1100,-6.5,0.17,-1e-05,0,,,,
+JETW,MaxTakeOff,25000,-25.0,0.3,1e-05,0,,,,

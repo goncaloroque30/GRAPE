@@ -1,0 +1,3 @@
+Aircraft Identifier,Thrust Rating,Propeller Efficiency,Installed Net Propulsive Power (hp)
+PROP,MaxClimb,0.85,7800
+PROP,MaxTakeOff,0.85,9500

@@ -1,0 +1,3 @@
+Scenario ID,Performance Run ID,ID,Noise Model,Atmospheric Absorption,Receptor Set Type,Save Single Event Metrics
+Reference Scenario,Performance,Noise Grid,Doc29,None,Grid,1
+Reference Scenario,Performance,Noise Points,Doc29,None,Points,1

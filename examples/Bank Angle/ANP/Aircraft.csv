@@ -1,0 +1,2 @@
+ACFT_ID,Description,Engine Type,Number Of Engines,Weight Class,Owner Category,Max Gross Takeoff Weight (lb),Max Gross Landing Weight (lb),Max Landing Distance (ft),Max Sea Level Static Thrust (lb),Noise Chapter,NPD_ID,Power Parameter,Approach Spectral Class ID,Departure Spectral Class ID,Lateral Directivity Identifier
+A320-232,Airbus A320-232 / V2527-A5 ,Jet,2,Large,Commercial,169756,145505,4917,26500,3,V2527A,CNT (lb),205,103,Wing

@@ -1,0 +1,19 @@
+Scenario ID,Performance Run ID,Noise Run ID,ID,Longitude,Latitude
+Reference Scenario,Performance,Noise Points,R01,0.058390503574951777,0
+Reference Scenario,Performance,Noise Points,R02,0,0.0018087389543951522
+Reference Scenario,Performance,Noise Points,R03,-0.0044915764251980527,0
+Reference Scenario,Performance,Noise Points,R04,-0.0044915764390924028,0.0045218473898517263
+Reference Scenario,Performance,Noise Points,R05,0.026949459600648016,0.0045218473898517263
+Reference Scenario,Performance,Noise Points,R06,0.073661876543285418,-0.016278650801515877
+Reference Scenario,Performance,Noise Points,R07,0.086238300007677293,-0.0036174779105566332
+Reference Scenario,Performance,Noise Points,R08,0.060187143215356731,-0.029844194065091333
+Reference Scenario,Performance,Noise Points,R09,0.089831676370695571,-0.090436984503603754
+Reference Scenario,Performance,Noise Points,R10,0.10779803107723991,-0.090436984503603754
+Reference Scenario,Performance,Noise Points,R11,0.071865330497072083,-0.090436984503603754
+Reference Scenario,Performance,Noise Points,R12,-0.20661297142235699,-0.016278650801515877
+Reference Scenario,Performance,Noise Points,R13,-0.2191894646441267,-0.0045218473898517263
+Reference Scenario,Performance,Noise Points,R14,-0.19313817788054799,-0.029844194065091333
+Reference Scenario,Performance,Noise Points,R15,-0.22278302749638926,-0.090436984503603754
+Reference Scenario,Performance,Noise Points,R16,-0.2407495024732802,-0.090436984503603754
+Reference Scenario,Performance,Noise Points,R17,-0.20481657442555798,-0.090436984503603754
+Reference Scenario,Performance,Noise Points,R18,-0.017966305976818937,0

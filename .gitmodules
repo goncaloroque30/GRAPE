@@ -1,0 +1,27 @@
+[submodule "vendor/rapidcsv"]
+	path = vendor/rapidcsv
+	url = https://github.com/goncaloroque30/rapidcsv.git
+[submodule "vendor/imgui"]
+	path = vendor/imgui
+	url = https://github.com/goncaloroque30/imgui.git
+	branch = docking
+[submodule "vendor/spdlog"]
+	path = vendor/spdlog
+	url = https://github.com/goncaloroque30/spdlog.git
+	branch = v1.x
+[submodule "vendor/glfw"]
+	path = vendor/glfw
+	url = https://github.com/goncaloroque30/glfw.git
+[submodule "vendor/nfl"]
+	path = vendor/nfd
+	url = https://github.com/goncaloroque30/nativefiledialog-extended.git
+[submodule "vendor/magic_enum"]
+	path = vendor/magic_enum
+	url = https://github.com/goncaloroque30/magic_enum.git
+[submodule "vendor/geographiclib"]
+	path = vendor/geographiclib
+	url = https://github.com/goncaloroque30/geographiclib.git
+	branch = release
+[submodule "vendor/doctest"]
+	path = vendor/doctest
+	url = https://github.com/goncaloroque30/doctest.git
