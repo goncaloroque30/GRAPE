@@ -2144,7 +2144,7 @@ namespace GRAPE::IO::CSV {
         auto& study = Application::study();
         const Settings& set = Application::settings();
 
-        CsvImport csvImp(CsvPath, "tracks 4D points", 10);
+        CsvImport csvImp(CsvPath, "tracks 4D points", 11);
         if (!csvImp.valid())
             return;
         auto& csv = csvImp.CsvImp;
@@ -2185,43 +2185,46 @@ namespace GRAPE::IO::CSV {
                 }
 
                 Track4d::Point pt;
-                auto flPhaseStr = csv.getCell<std::string>(row, 2);
+
+                pt.setTime(csv.getCell<std::string>(row, 2));
+
+                auto flPhaseStr = csv.getCell<std::string>(row, 3);
                 if (!FlightPhases.contains(flPhaseStr))
                     throw GrapeException(std::format("Invalid flight phase '{}'", flPhaseStr));
                 pt.FlPhase = FlightPhases.fromString(flPhaseStr);
 
-                try { pt.CumulativeGroundDistance = set.DistanceUnits.toSi(csv.getCell<double>(row, 3), columnNames.at(3)); }
+                try { pt.CumulativeGroundDistance = set.DistanceUnits.toSi(csv.getCell<double>(row, 4), columnNames.at(4)); }
                 catch (...) { throw std::invalid_argument("Invalid cumulative ground distance."); }
 
-                try { pt.setLongitude(csv.getCell<double>(row, 4)); }
+                try { pt.setLongitude(csv.getCell<double>(row, 5)); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid longitude."); }
 
-                try { pt.setLatitude(csv.getCell<double>(row, 5)); }
+                try { pt.setLatitude(csv.getCell<double>(row, 6)); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid latitude."); }
 
-                try { pt.AltitudeMsl = set.AltitudeUnits.toSi(csv.getCell<double>(row, 6), columnNames.at(6)); }
+                try { pt.AltitudeMsl = set.AltitudeUnits.toSi(csv.getCell<double>(row, 7), columnNames.at(7)); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid altitude MSL."); }
 
-                try { pt.setTrueAirspeed(set.SpeedUnits.toSi(csv.getCell<double>(row, 7), columnNames.at(7))); }
+                try { pt.setTrueAirspeed(set.SpeedUnits.toSi(csv.getCell<double>(row, 8), columnNames.at(8))); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid true airspeed."); }
 
-                try { pt.setGroundspeed(set.SpeedUnits.toSi(csv.getCell<double>(row, 8), columnNames.at(8))); }
+                try { pt.setGroundspeed(set.SpeedUnits.toSi(csv.getCell<double>(row, 9), columnNames.at(9))); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid groundspeed."); }
 
-                try { pt.CorrNetThrustPerEng = set.ThrustUnits.toSi(csv.getCell<double>(row, 9), columnNames.at(9)); }
+                try { pt.CorrNetThrustPerEng = set.ThrustUnits.toSi(csv.getCell<double>(row, 10), columnNames.at(10)); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid thrust."); }
 
-                try { pt.setBankAngle(csv.getCell<double>(row, 10)); }
+                try { pt.setBankAngle(csv.getCell<double>(row, 11)); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid bank angle."); }
 
-                try { pt.setFuelFlowPerEng(set.FuelFlowUnits.toSi(csv.getCell<double>(row, 11), columnNames.at(11))); }
+                try { pt.setFuelFlowPerEng(set.FuelFlowUnits.toSi(csv.getCell<double>(row, 12), columnNames.at(12))); }
                 catch (const GrapeException&) { throw; }
                 catch (...) { throw std::invalid_argument("Invalid fuel flow per engine."); }
 
@@ -2324,7 +2327,7 @@ namespace GRAPE::IO::CSV {
         auto& study = Application::study();
         const Settings& set = Application::settings();
 
-        CsvImport csvImp(CsvPath, "performance runs", 20);
+        CsvImport csvImp(CsvPath, "performance runs", 21);
         if (!csvImp.valid())
             return;
         auto& csv = csvImp.CsvImp;
@@ -2447,36 +2450,43 @@ namespace GRAPE::IO::CSV {
                     catch (...) { throw std::invalid_argument("Invalid tracks 4D minimum points."); }
                 }
 
-                auto tracks4dRecalculateCumulativeGroundDistanceStr = csv.getCell<std::string>(row, 15);
+                auto tracks4dRecalculateTimeDistanceStr = csv.getCell<std::string>(row, 15);
+                if (!tracks4dRecalculateTimeDistanceStr.empty())
+                {
+                    try { newPerfRun.PerfRunSpec.Tracks4dRecalculateTime = static_cast<bool>(csv.getCell<int>(row, 15)); }
+                    catch (...) { throw std::invalid_argument("Invalid tracks 4D recalculate time flag."); }
+                }
+
+                auto tracks4dRecalculateCumulativeGroundDistanceStr = csv.getCell<std::string>(row, 16);
                 if (!tracks4dRecalculateCumulativeGroundDistanceStr.empty())
                 {
-                    try { newPerfRun.PerfRunSpec.Tracks4dRecalculateCumulativeGroundDistance = static_cast<bool>(csv.getCell<int>(row, 15)); }
+                    try { newPerfRun.PerfRunSpec.Tracks4dRecalculateCumulativeGroundDistance = static_cast<bool>(csv.getCell<int>(row, 16)); }
                     catch (...) { throw std::invalid_argument("Invalid tracks 4D recalculate cumulative ground distance flag."); }
                 }
 
-                auto tracks4dRecalculateGroundspeedStr = csv.getCell<std::string>(row, 16);
+                auto tracks4dRecalculateGroundspeedStr = csv.getCell<std::string>(row, 17);
                 if (!tracks4dRecalculateGroundspeedStr.empty())
                 {
-                    try { newPerfRun.PerfRunSpec.Tracks4dRecalculateGroundspeed = static_cast<bool>(csv.getCell<int>(row, 16)); }
+                    try { newPerfRun.PerfRunSpec.Tracks4dRecalculateGroundspeed = static_cast<bool>(csv.getCell<int>(row, 17)); }
                     catch (...) { throw std::invalid_argument("Invalid tracks 4D recalculate groundspeed flag."); }
                 }
 
-                auto tracks4dRecalculateFuelFlowStr = csv.getCell<std::string>(row, 17);
+                auto tracks4dRecalculateFuelFlowStr = csv.getCell<std::string>(row, 18);
                 if (!tracks4dRecalculateFuelFlowStr.empty())
                 {
-                    try { newPerfRun.PerfRunSpec.Tracks4dRecalculateFuelFlow = static_cast<bool>(csv.getCell<int>(row, 17)); }
+                    try { newPerfRun.PerfRunSpec.Tracks4dRecalculateFuelFlow = static_cast<bool>(csv.getCell<int>(row, 18)); }
                     catch (...) { throw std::invalid_argument("Invalid tracks 4D recalculate fuel flow flag."); }
                 }
 
-                auto fuelFlowModelStr = csv.getCell<std::string>(row, 18);
+                auto fuelFlowModelStr = csv.getCell<std::string>(row, 19);
                 if (!FuelFlowModelTypes.contains(fuelFlowModelStr))
                     throw GrapeException(std::format("Invalid fuel flow model '{}'.", fuelFlowModelStr));
                 newPerfRun.PerfRunSpec.FuelFlowMdl = FuelFlowModelTypes.fromString(fuelFlowModelStr);
 
-                auto fuelFlowLTOAltitudeCorrectionStr = csv.getCell<std::string>(row, 19);
+                auto fuelFlowLTOAltitudeCorrectionStr = csv.getCell<std::string>(row, 20);
                 if (!fuelFlowLTOAltitudeCorrectionStr.empty())
                 {
-                    try { newPerfRun.PerfRunSpec.FuelFlowLTOAltitudeCorrection = static_cast<bool>(csv.getCell<int>(row, 19)); }
+                    try { newPerfRun.PerfRunSpec.FuelFlowLTOAltitudeCorrection = static_cast<bool>(csv.getCell<int>(row, 20)); }
                     catch (...) { throw std::invalid_argument("Invalid fuel flow LTO altitude correction flag."); }
                 }
 

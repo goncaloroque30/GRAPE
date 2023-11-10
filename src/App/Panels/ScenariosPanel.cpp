@@ -1159,6 +1159,11 @@ namespace GRAPE {
                     updated = true;
 
                 // Recalculations
+                ImGui::TextDisabled("Recalculate time:");
+                ImGui::SameLine();
+                if (ImGui::Checkbox("##RecalculateTime", &perfRun.PerfRunSpec.Tracks4dRecalculateTime))
+                    updated = true;
+
                 ImGui::TextDisabled("Recalculate cumulative ground distance:");
                 ImGui::SameLine();
                 if (ImGui::Checkbox("##RecalculateCumulativeGroundDistance", &perfRun.PerfRunSpec.Tracks4dRecalculateCumulativeGroundDistance))
@@ -2033,7 +2038,7 @@ namespace GRAPE {
             if (ImGui::Checkbox("##CalculateGasEmissions", &emiRun.EmissionsRunSpec.CalculateGasEmissions))
                 updated = true;
 
-            if (emiRun.EmissionsRunSpec.CalculateGasEmissions)
+            if (emiRun.EmissionsRunSpec.CalculateGasEmissions && emiRun.EmissionsRunSpec.EmissionsMdl != EmissionsModel::LTOCycle)
             {
                 ImGui::AlignTextToFramePadding();
                 ImGui::TextDisabled("Use BFFM 2 to correct EIs:");
@@ -2280,7 +2285,7 @@ namespace GRAPE {
                     ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_NoHide);
                     ImGui::TableSetupColumn("Operation", ImGuiTableColumnFlags_NoHide);
                     ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_NoHide);
-                    ImGui::TableSetupColumn(std::format("Fuel ({})", set.EmissionsWeightUnits.shortName()).c_str());
+                    ImGui::TableSetupColumn(std::format("Fuel ({})", set.WeightUnits.shortName()).c_str());
                     ImGui::TableSetupColumn(std::format("HC ({})", set.EmissionsWeightUnits.shortName()).c_str());
                     ImGui::TableSetupColumn(std::format("CO ({})", set.EmissionsWeightUnits.shortName()).c_str());
                     ImGui::TableSetupColumn(std::format("NOx ({})", set.EmissionsWeightUnits.shortName()).c_str());
@@ -2302,7 +2307,7 @@ namespace GRAPE {
 
                     // Fuel
                     UI::tableNextColumn(false);
-                    UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(emiRun.output().totalFuel()), set.EmissionsWeightUnits.decimals()));
+                    UI::textInfo(std::format("{0:.{1}f}", set.WeightUnits.fromSi(emiRun.output().totalFuel()), set.WeightUnits.decimals()));
 
                     // HC
                     UI::tableNextColumn(false);
@@ -2318,7 +2323,7 @@ namespace GRAPE {
 
                     // nvPM
                     UI::tableNextColumn(false);
-                    UI::textInfo(std::format("{0:.3f}", toMilligramsPerKilogram(emissionTotals.nvPM)));
+                    UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(emissionTotals.nvPM), set.EmissionsWeightUnits.decimals()));
 
                     // nvPM number
                     UI::tableNextColumn(false);
@@ -2351,7 +2356,7 @@ namespace GRAPE {
 
                         // Fuel
                         UI::tableNextColumn(false);
-                        UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(opOut.totalFuel()), set.EmissionsWeightUnits.decimals()));
+                        UI::textInfo(std::format("{0:.{1}f}", set.WeightUnits.fromSi(opOut.totalFuel()), set.WeightUnits.decimals()));
 
                         // HC
                         UI::tableNextColumn(false);
@@ -2367,7 +2372,7 @@ namespace GRAPE {
 
                         // nvPM
                         UI::tableNextColumn(false);
-                        UI::textInfo(std::format("{0:.3f}", toMilligramsPerKilogram(opOut.totalEmissions().nvPM)));
+                        UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(opOut.totalEmissions().nvPM), set.EmissionsWeightUnits.decimals()));
 
                         // nvPM number
                         UI::tableNextColumn(false);
@@ -2403,7 +2408,7 @@ namespace GRAPE {
 
                         // Fuel
                         UI::tableNextColumn(false);
-                        UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(opOut.totalFuel()), set.EmissionsWeightUnits.decimals()));
+                        UI::textInfo(std::format("{0:.{1}f}", set.WeightUnits.fromSi(opOut.totalFuel()), set.WeightUnits.decimals()));
 
                         // HC
                         UI::tableNextColumn(false);
@@ -2419,7 +2424,7 @@ namespace GRAPE {
 
                         // nvPM
                         UI::tableNextColumn(false);
-                        UI::textInfo(std::format("{0:.3f}", toMilligramsPerKilogram(opOut.totalEmissions().nvPM)));
+                        UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(opOut.totalEmissions().nvPM), set.EmissionsWeightUnits.decimals()));
 
                         // nvPM number
                         UI::tableNextColumn(false);
@@ -2771,10 +2776,11 @@ namespace GRAPE {
 
         const auto& set = Application::settings();
 
-        if (UI::beginTable("PerformanceOutput", 12))
+        if (UI::beginTable("PerformanceOutput", 13))
         {
             ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_NoHide);
             ImGui::TableSetupColumn("Origin", ImGuiTableColumnFlags_NoHide);
+            ImGui::TableSetupColumn("Time", ImGuiTableColumnFlags_NoHide);
             ImGui::TableSetupColumn("Flight Phase", ImGuiTableColumnFlags_NoHide);
             ImGui::TableSetupColumn(std::format("Cumulative Ground Distance ({})", set.DistanceUnits.shortName()).c_str(), ImGuiTableColumnFlags_NoHide);
             ImGui::TableSetupColumn("Longitude", ImGuiTableColumnFlags_NoHide);
@@ -2802,6 +2808,10 @@ namespace GRAPE {
                 // Origin
                 UI::tableNextColumn(false);
                 UI::textInfo(PerformanceOutput::Origins.toString(Pt.PtOrigin));
+
+                // Time
+                UI::tableNextColumn(false);
+                UI::textInfo(timeToUtcString(Pt.Time));
 
                 // Flight Phase
                 UI::tableNextColumn(false);
@@ -3024,7 +3034,7 @@ namespace GRAPE {
                 ImGui::TableSetupColumn("LTO Phase", ImGuiTableColumnFlags_NoHide);
             else
                 ImGui::TableSetupColumn("Segment Number", ImGuiTableColumnFlags_NoHide);
-            ImGui::TableSetupColumn(std::format("Fuel ({})", set.EmissionsWeightUnits.shortName()).c_str());
+            ImGui::TableSetupColumn(std::format("Fuel ({})", set.WeightUnits.shortName()).c_str());
             ImGui::TableSetupColumn(std::format("HC ({})", set.EmissionsWeightUnits.shortName()).c_str());
             ImGui::TableSetupColumn(std::format("CO ({})", set.EmissionsWeightUnits.shortName()).c_str());
             ImGui::TableSetupColumn(std::format("NOx ({})", set.EmissionsWeightUnits.shortName()).c_str());
@@ -3052,7 +3062,7 @@ namespace GRAPE {
 
                     // Fuel
                     UI::tableNextColumn(false);
-                    UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(segOut.Fuel), set.EmissionsWeightUnits.decimals()));
+                    UI::textInfo(std::format("{0:.{1}f}", set.WeightUnits.fromSi(segOut.Fuel), set.WeightUnits.decimals()));
 
                     // HC
                     UI::tableNextColumn(false);
@@ -3068,7 +3078,7 @@ namespace GRAPE {
 
                     // nvPM
                     UI::tableNextColumn(false);
-                    UI::textInfo(std::format("{0:.3f}", toMilligramsPerKilogram(segOut.Emissions.nvPM), set.EmissionsWeightUnits.decimals()));
+                    UI::textInfo(std::format("{0:.{1}f}", set.EmissionsWeightUnits.fromSi(segOut.Emissions.nvPM), set.EmissionsWeightUnits.decimals()));
 
                     // nvPM number
                     UI::tableNextColumn(false);

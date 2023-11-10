@@ -164,6 +164,9 @@ namespace GRAPE {
     typedef std::chrono::utc_seconds TimePointUtc;
     typedef std::chrono::seconds Duration;
 
+    inline TimePoint now() {
+        return std::chrono::time_point_cast<std::chrono::seconds>(std::chrono::tai_clock::now());
+    }
     /**
     * @brief Standard conversion to string representation of time variable.
     * @return The Time converted to UTC in the format "yyyy-mm-dd HH:MM:SS".

@@ -76,10 +76,10 @@ namespace GRAPE {
             m_FlightsCalculator->fuelFlowCalculator().addLTOEngine(op.get().aircraft().LTOEng);
 
         for (auto op : m_PerfRun.parentScenario().Track4dArrivals)
-            m_FlightsCalculator->fuelFlowCalculator().addLTOEngine(op.get().aircraft().LTOEng);
+            m_Tracks4dCalculator->fuelFlowCalculator().addLTOEngine(op.get().aircraft().LTOEng);
 
         for (auto op : m_PerfRun.parentScenario().Track4dDepartures)
-            m_FlightsCalculator->fuelFlowCalculator().addLTOEngine(op.get().aircraft().LTOEng);
+            m_Tracks4dCalculator->fuelFlowCalculator().addLTOEngine(op.get().aircraft().LTOEng);
 
         // Queue Operations
         const auto& perfRunOutput = m_PerfRun.m_PerfRunOutput;

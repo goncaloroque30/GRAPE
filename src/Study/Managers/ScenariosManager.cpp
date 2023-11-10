@@ -625,28 +625,31 @@ namespace GRAPE {
 
     PerformanceRunUpdater::PerformanceRunUpdater(const Database& Db, const PerformanceRun& PerfRun) : m_Db(Db), m_PerfRun(PerfRun), m_Stmt(Db, Schema::performance_run.queryUpdate({}, { 0, 1 })) {
         const auto& spec = PerfRun.PerfRunSpec;
-        m_Stmt.bind(0, PerfRun.parentScenario().Name);
-        m_Stmt.bind(1, PerfRun.Name);
-        m_Stmt.bind(2, CoordinateSystem::Types.toString(spec.CoordSys->type()));
+        std::size_t col = 0;
+        m_Stmt.bind(col++, PerfRun.parentScenario().Name);
+        m_Stmt.bind(col++, PerfRun.Name);
+        m_Stmt.bind(col++, CoordinateSystem::Types.toString(spec.CoordSys->type()));
         m_PerfRun.PerfRunSpec.CoordSys->accept(*this);
-        std::isinf(spec.FilterMinimumAltitude) ? m_Stmt.bind(5, std::monostate()) : m_Stmt.bind(5, spec.FilterMinimumAltitude);
-        std::isinf(spec.FilterMaximumAltitude) ? m_Stmt.bind(6, std::monostate()) : m_Stmt.bind(6, spec.FilterMaximumAltitude);
-        std::isinf(spec.FilterMinimumCumulativeGroundDistance) ? m_Stmt.bind(7, std::monostate()) : m_Stmt.bind(7, spec.FilterMinimumCumulativeGroundDistance);
-        std::isinf(spec.FilterMaximumCumulativeGroundDistance) ? m_Stmt.bind(8, std::monostate()) : m_Stmt.bind(8, spec.FilterMaximumCumulativeGroundDistance);
-        m_Stmt.bind(9, spec.FilterGroundDistanceThreshold);
-        m_Stmt.bind(10, spec.SpeedDeltaSegmentationThreshold);
-        m_Stmt.bind(11, PerformanceModelTypes.toString(spec.FlightsPerformanceMdl));
-        m_Stmt.bind(12, spec.FlightsDoc29Segmentation);
-        m_Stmt.bind(13, static_cast<int>(spec.Tracks4dCalculatePerformance));
-        m_Stmt.bind(14, spec.Tracks4dMinimumPoints);
-        m_Stmt.bind(15, static_cast<int>(spec.Tracks4dRecalculateCumulativeGroundDistance));
-        m_Stmt.bind(16, static_cast<int>(spec.Tracks4dRecalculateGroundspeed));
-        m_Stmt.bind(17, static_cast<int>(spec.Tracks4dRecalculateFuelFlow));
-        m_Stmt.bind(18, FuelFlowModelTypes.toString(spec.FuelFlowMdl));
-        m_Stmt.bind(19, static_cast<int>(spec.FuelFlowLTOAltitudeCorrection));
+        col += 2;
+        std::isinf(spec.FilterMinimumAltitude) ? m_Stmt.bind(col++, std::monostate()) : m_Stmt.bind(col++, spec.FilterMinimumAltitude);
+        std::isinf(spec.FilterMaximumAltitude) ? m_Stmt.bind(col++, std::monostate()) : m_Stmt.bind(col++, spec.FilterMaximumAltitude);
+        std::isinf(spec.FilterMinimumCumulativeGroundDistance) ? m_Stmt.bind(col++, std::monostate()) : m_Stmt.bind(col++, spec.FilterMinimumCumulativeGroundDistance);
+        std::isinf(spec.FilterMaximumCumulativeGroundDistance) ? m_Stmt.bind(col++, std::monostate()) : m_Stmt.bind(col++, spec.FilterMaximumCumulativeGroundDistance);
+        m_Stmt.bind(col++, spec.FilterGroundDistanceThreshold);
+        m_Stmt.bind(col++, spec.SpeedDeltaSegmentationThreshold);
+        m_Stmt.bind(col++, PerformanceModelTypes.toString(spec.FlightsPerformanceMdl));
+        m_Stmt.bind(col++, spec.FlightsDoc29Segmentation);
+        m_Stmt.bind(col++, static_cast<int>(spec.Tracks4dCalculatePerformance));
+        m_Stmt.bind(col++, spec.Tracks4dMinimumPoints);
+        m_Stmt.bind(col++, static_cast<int>(spec.Tracks4dRecalculateTime));
+        m_Stmt.bind(col++, static_cast<int>(spec.Tracks4dRecalculateCumulativeGroundDistance));
+        m_Stmt.bind(col++, static_cast<int>(spec.Tracks4dRecalculateGroundspeed));
+        m_Stmt.bind(col++, static_cast<int>(spec.Tracks4dRecalculateFuelFlow));
+        m_Stmt.bind(col++, FuelFlowModelTypes.toString(spec.FuelFlowMdl));
+        m_Stmt.bind(col++, static_cast<int>(spec.FuelFlowLTOAltitudeCorrection));
 
-        m_Stmt.bind(20, PerfRun.parentScenario().Name);
-        m_Stmt.bind(21, PerfRun.Name);
+        m_Stmt.bind(col++, PerfRun.parentScenario().Name);
+        m_Stmt.bind(col++, PerfRun.Name);
 
         m_Stmt.step();
 
@@ -761,57 +764,64 @@ namespace GRAPE {
             stmtPerfRuns.step();
             while (stmtPerfRuns.hasRow())
             {
-                const std::string perfRunName = stmtPerfRuns.getColumn(1);
+                std::size_t colPr = 1;
+                const std::string perfRunName = stmtPerfRuns.getColumn(colPr++);
                 auto [perfRun, perfRunAdded] = scen.PerformanceRuns.add(perfRunName, scen, perfRunName);
                 GRAPE_ASSERT(perfRunAdded);
 
-                switch (CoordinateSystem::Types.fromString(stmtPerfRuns.getColumn(2))) // Coordinate System Type
+                switch (CoordinateSystem::Types.fromString(stmtPerfRuns.getColumn(colPr++))) // Coordinate System Type
                 {
                 case CoordinateSystem::Type::LocalCartesian:
                     {
-                        double lon0 = stmtPerfRuns.getColumn(3);
-                        double lat0 = stmtPerfRuns.getColumn(4);
+                        double lon0 = stmtPerfRuns.getColumn(colPr++);
+                        double lat0 = stmtPerfRuns.getColumn(colPr++);
                         perfRun.PerfRunSpec.CoordSys = std::make_unique<LocalCartesian>(lon0, lat0);
                         break;
                     }
-                case CoordinateSystem::Type::Geodesic: perfRun.PerfRunSpec.CoordSys = std::make_unique<Geodesic>();
-                    break;
+                case CoordinateSystem::Type::Geodesic:
+                    {
+                        perfRun.PerfRunSpec.CoordSys = std::make_unique<Geodesic>();
+                        colPr += 2;
+                        break;
+                    }
                 default: GRAPE_ASSERT(false);
                     break;
                 }
 
-                if (!stmtPerfRuns.isColumnNull(5))
-                    perfRun.PerfRunSpec.FilterMinimumAltitude = stmtPerfRuns.getColumn(5);
-                if (!stmtPerfRuns.isColumnNull(6))
-                    perfRun.PerfRunSpec.FilterMaximumAltitude = stmtPerfRuns.getColumn(6);
-                if (!stmtPerfRuns.isColumnNull(7))
-                    perfRun.PerfRunSpec.FilterMinimumCumulativeGroundDistance = stmtPerfRuns.getColumn(7);
-                if (!stmtPerfRuns.isColumnNull(8))
-                    perfRun.PerfRunSpec.FilterMaximumCumulativeGroundDistance = stmtPerfRuns.getColumn(8);
-                if (!stmtPerfRuns.isColumnNull(9))
-                    perfRun.PerfRunSpec.FilterGroundDistanceThreshold = stmtPerfRuns.getColumn(9);
+                if (!stmtPerfRuns.isColumnNull(colPr++))
+                    perfRun.PerfRunSpec.FilterMinimumAltitude = stmtPerfRuns.getColumn(colPr - 1);
+                if (!stmtPerfRuns.isColumnNull(colPr++))
+                    perfRun.PerfRunSpec.FilterMaximumAltitude = stmtPerfRuns.getColumn(colPr - 1);
+                if (!stmtPerfRuns.isColumnNull(colPr++))
+                    perfRun.PerfRunSpec.FilterMinimumCumulativeGroundDistance = stmtPerfRuns.getColumn(colPr - 1);
+                if (!stmtPerfRuns.isColumnNull(colPr++))
+                    perfRun.PerfRunSpec.FilterMaximumCumulativeGroundDistance = stmtPerfRuns.getColumn(colPr - 1);
+                if (!stmtPerfRuns.isColumnNull(colPr++))
+                    perfRun.PerfRunSpec.FilterGroundDistanceThreshold = stmtPerfRuns.getColumn(colPr - 1);
 
-                if (!stmtPerfRuns.isColumnNull(10))
-                    perfRun.PerfRunSpec.SpeedDeltaSegmentationThreshold = stmtPerfRuns.getColumn(10);
+                if (!stmtPerfRuns.isColumnNull(colPr++))
+                    perfRun.PerfRunSpec.SpeedDeltaSegmentationThreshold = stmtPerfRuns.getColumn(colPr - 1);
 
-                perfRun.PerfRunSpec.FlightsPerformanceMdl = PerformanceModelTypes.fromString(stmtPerfRuns.getColumn(11));
-                if (!stmtPerfRuns.isColumnNull(12))
-                    perfRun.PerfRunSpec.FlightsDoc29Segmentation = static_cast<bool>(stmtPerfRuns.getColumn(12).getInt());
+                perfRun.PerfRunSpec.FlightsPerformanceMdl = PerformanceModelTypes.fromString(stmtPerfRuns.getColumn(colPr++));
+                if (!stmtPerfRuns.isColumnNull(colPr++))
+                    perfRun.PerfRunSpec.FlightsDoc29Segmentation = static_cast<bool>(stmtPerfRuns.getColumn(colPr - 1).getInt());
 
-                if (!stmtPerfRuns.isColumnNull(13))
-                    perfRun.PerfRunSpec.Tracks4dCalculatePerformance = static_cast<bool>(stmtPerfRuns.getColumn(13).getInt());
-                if (!stmtPerfRuns.isColumnNull(14))
-                    perfRun.PerfRunSpec.Tracks4dMinimumPoints = stmtPerfRuns.getColumn(14);
-                if (!stmtPerfRuns.isColumnNull(15))
-                    perfRun.PerfRunSpec.Tracks4dRecalculateCumulativeGroundDistance = static_cast<bool>(stmtPerfRuns.getColumn(15).getInt());
-                if (!stmtPerfRuns.isColumnNull(16))
-                    perfRun.PerfRunSpec.Tracks4dRecalculateGroundspeed = static_cast<bool>(stmtPerfRuns.getColumn(16).getInt());
-                if (!stmtPerfRuns.isColumnNull(17))
-                    perfRun.PerfRunSpec.Tracks4dRecalculateFuelFlow = static_cast<bool>(stmtPerfRuns.getColumn(17).getInt());
+                if (!stmtPerfRuns.isColumnNull(colPr++))
+                    perfRun.PerfRunSpec.Tracks4dCalculatePerformance = static_cast<bool>(stmtPerfRuns.getColumn(colPr - 1).getInt());
+                if (!stmtPerfRuns.isColumnNull(colPr++))
+                    perfRun.PerfRunSpec.Tracks4dMinimumPoints = stmtPerfRuns.getColumn(colPr - 1);
+                if (!stmtPerfRuns.isColumnNull(colPr++))
+                    perfRun.PerfRunSpec.Tracks4dRecalculateTime = static_cast<bool>(stmtPerfRuns.getColumn(colPr - 1).getInt());
+                if (!stmtPerfRuns.isColumnNull(colPr++))
+                    perfRun.PerfRunSpec.Tracks4dRecalculateCumulativeGroundDistance = static_cast<bool>(stmtPerfRuns.getColumn(colPr - 1).getInt());
+                if (!stmtPerfRuns.isColumnNull(colPr++))
+                    perfRun.PerfRunSpec.Tracks4dRecalculateGroundspeed = static_cast<bool>(stmtPerfRuns.getColumn(colPr - 1).getInt());
+                if (!stmtPerfRuns.isColumnNull(colPr++))
+                    perfRun.PerfRunSpec.Tracks4dRecalculateFuelFlow = static_cast<bool>(stmtPerfRuns.getColumn(colPr - 1).getInt());
 
-                perfRun.PerfRunSpec.FuelFlowMdl = FuelFlowModelTypes.fromString(stmtPerfRuns.getColumn(18));
-                if (!stmtPerfRuns.isColumnNull(19))
-                    perfRun.PerfRunSpec.FuelFlowLTOAltitudeCorrection = static_cast<bool>(stmtPerfRuns.getColumn(19).getInt());
+                perfRun.PerfRunSpec.FuelFlowMdl = FuelFlowModelTypes.fromString(stmtPerfRuns.getColumn(colPr++));
+                if (!stmtPerfRuns.isColumnNull(colPr++))
+                    perfRun.PerfRunSpec.FuelFlowLTOAltitudeCorrection = static_cast<bool>(stmtPerfRuns.getColumn(colPr - 1).getInt());
 
                 // Atmospheres
                 Statement stmtAtms(m_Db, Schema::performance_run_atmospheres.querySelect({}, { 0, 1 }));

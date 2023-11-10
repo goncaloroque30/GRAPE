@@ -40,10 +40,10 @@ namespace GRAPE {
         case EmissionsModel::LTOCycle: m_EmissionsCalculator = std::make_unique<EmissionsCalculatorLTOCycle>(m_EmissionsRun.parentPerformanceRun().PerfRunSpec, m_EmissionsRun.EmissionsRunSpec); break;
         case EmissionsModel::Segments:
             {
-                if (!m_EmissionsRun.EmissionsRunSpec.BFFM2Model)
-                    m_EmissionsCalculator = std::make_unique<EmissionsCalculatorLTO>(m_EmissionsRun.parentPerformanceRun().PerfRunSpec, m_EmissionsRun.EmissionsRunSpec);
-                else
+                if (m_EmissionsRun.EmissionsRunSpec.CalculateGasEmissions && m_EmissionsRun.EmissionsRunSpec.BFFM2Model)
                     m_EmissionsCalculator = std::make_unique<EmissionsCalculatorBFFM2>(m_EmissionsRun.parentPerformanceRun().PerfRunSpec, m_EmissionsRun.EmissionsRunSpec);
+                else
+                    m_EmissionsCalculator = std::make_unique<EmissionsCalculatorLTO>(m_EmissionsRun.parentPerformanceRun().PerfRunSpec, m_EmissionsRun.EmissionsRunSpec);
                 break;
             }
         default: GRAPE_ASSERT(false) break;

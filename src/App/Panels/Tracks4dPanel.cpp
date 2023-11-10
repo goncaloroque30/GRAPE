@@ -380,9 +380,10 @@ namespace GRAPE {
             }
         }
 
-        if (UI::beginTable("Track 4D Points", 11))
+        if (UI::beginTable("Track 4D Points", 12))
         {
             ImGui::TableSetupColumn("#");
+            ImGui::TableSetupColumn("Time");
             ImGui::TableSetupColumn("Flight Phase");
             ImGui::TableSetupColumn(std::format("Cumulative Ground Distance ({})", set.DistanceUnits.shortName()).c_str());
             ImGui::TableSetupColumn("Longitude");
@@ -422,6 +423,11 @@ namespace GRAPE {
 
                 // # (Point Number)
                 UI::textInfo(std::format("{}", i + 1));
+
+                // Time
+                UI::tableNextColumn();
+                if (UI::inputDateTime("Time", pt.Time))
+                    update = true;
 
                 // Type
                 UI::tableNextColumn();

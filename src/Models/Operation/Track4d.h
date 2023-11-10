@@ -16,6 +16,7 @@ namespace GRAPE {
         * @brief Data structure that holds all variables needed for each point of a Track4d.
         */
         struct Point {
+            TimePoint Time = now();
             FlightPhase FlPhase = FlightPhase::Approach;
             double CumulativeGroundDistance = 0.0;
             double Longitude = 0.0, Latitude = 0.0;
@@ -27,6 +28,14 @@ namespace GRAPE {
             double FuelFlowPerEng = 0.0;
 
             bool operator==(const Point&) const = default;
+
+            /**
+            * @brief Convenience throwing set method for #Time.
+            * @param UtcTimeStr A string representing a UTC time in the format "yyyy-mm-dd HH:MM:SS".
+            *
+            * Throws if failed to convert the UtcTimeStr to a valid UTC time.
+            */
+            void setTime(const std::string& UtcTimeStr);
 
             /**
             * @brief Throwing set method for #Longitude.
@@ -105,7 +114,7 @@ namespace GRAPE {
         * ASSERT BankAngle in [-90, 90].
         * ASSERT FuelFlowPerEng in [0, inf].
         */
-        void addPoint(FlightPhase FlPhase, double CumulativeGroundDistance, double Longitude, double Latitude, double AltitudeMsl, double TrueAirspeed, double Groundspeed, double CorrNetThrustPerEng, double BankAngle, double FuelFlowPerEng) noexcept;
+        void addPoint(TimePoint Time, FlightPhase FlPhase, double CumulativeGroundDistance, double Longitude, double Latitude, double AltitudeMsl, double TrueAirspeed, double Groundspeed, double CorrNetThrustPerEng, double BankAngle, double FuelFlowPerEng) noexcept;
 
         /**
         * @brief Adds a point to the end of the vector.
@@ -134,7 +143,7 @@ namespace GRAPE {
         void deletePoint() noexcept;
 
         /**
-        * @brief Deletes all points from the vector. If Shrink is true, the vector capcacity is reduced to 0.
+        * @brief Deletes all points from the vector. If Shrink is true, the vector capacity is reduced to 0.
         */
         void clear(bool Shrink = false) noexcept;
 

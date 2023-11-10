@@ -1300,6 +1300,7 @@ namespace GRAPE::IO::CSV {
         csv.setColumnNames(
             "ID",
             "Operation",
+            "Time",
             "Flight Phase",
             std::format("Cumulative Ground Distance ({})", set.DistanceUnits.shortName()),
             "Longitude",
@@ -1318,18 +1319,20 @@ namespace GRAPE::IO::CSV {
             study.Operations.loadArr(op);
             for (const auto& pt : op)
             {
-                csv.setCell(row, 0, op.Name);
-                csv.setCell(row, 1, OperationTypes.toString(op.operationType()));
-                csv.setCell(row, 2, FlightPhases.toString(pt.FlPhase));
-                csv.setCell(row, 3, set.DistanceUnits.fromSi(pt.CumulativeGroundDistance));
-                csv.setCell(row, 4, pt.Longitude);
-                csv.setCell(row, 5, pt.Latitude);
-                csv.setCell(row, 6, set.AltitudeUnits.fromSi(pt.AltitudeMsl));
-                csv.setCell(row, 7, set.SpeedUnits.fromSi(pt.TrueAirspeed));
-                csv.setCell(row, 8, set.SpeedUnits.fromSi(pt.Groundspeed));
-                csv.setCell(row, 9, set.ThrustUnits.fromSi(pt.CorrNetThrustPerEng));
-                csv.setCell(row, 10, pt.BankAngle);
-                csv.setCell(row, 11, set.FuelFlowUnits.fromSi(pt.FuelFlowPerEng));
+                std::size_t col = 0;
+                csv.setCell(row, col++, op.Name);
+                csv.setCell(row, col++, OperationTypes.toString(op.operationType()));
+                csv.setCell(row, col++, timeToUtcString(pt.Time));
+                csv.setCell(row, col++, FlightPhases.toString(pt.FlPhase));
+                csv.setCell(row, col++, set.DistanceUnits.fromSi(pt.CumulativeGroundDistance));
+                csv.setCell(row, col++, pt.Longitude);
+                csv.setCell(row, col++, pt.Latitude);
+                csv.setCell(row, col++, set.AltitudeUnits.fromSi(pt.AltitudeMsl));
+                csv.setCell(row, col++, set.SpeedUnits.fromSi(pt.TrueAirspeed));
+                csv.setCell(row, col++, set.SpeedUnits.fromSi(pt.Groundspeed));
+                csv.setCell(row, col++, set.ThrustUnits.fromSi(pt.CorrNetThrustPerEng));
+                csv.setCell(row, col++, pt.BankAngle);
+                csv.setCell(row, col++, set.FuelFlowUnits.fromSi(pt.FuelFlowPerEng));
                 ++row;
             }
         }
@@ -1339,18 +1342,20 @@ namespace GRAPE::IO::CSV {
             study.Operations.loadDep(op);
             for (const auto& pt : op)
             {
-                csv.setCell(row, 0, op.Name);
-                csv.setCell(row, 1, OperationTypes.toString(op.operationType()));
-                csv.setCell(row, 2, FlightPhases.toString(pt.FlPhase));
-                csv.setCell(row, 3, set.DistanceUnits.fromSi(pt.CumulativeGroundDistance));
-                csv.setCell(row, 4, pt.Longitude);
-                csv.setCell(row, 5, pt.Latitude);
-                csv.setCell(row, 6, set.AltitudeUnits.fromSi(pt.AltitudeMsl));
-                csv.setCell(row, 7, set.SpeedUnits.fromSi(pt.TrueAirspeed));
-                csv.setCell(row, 8, set.SpeedUnits.fromSi(pt.Groundspeed));
-                csv.setCell(row, 9, set.ThrustUnits.fromSi(pt.CorrNetThrustPerEng));
-                csv.setCell(row, 10, pt.BankAngle);
-                csv.setCell(row, 11, set.FuelFlowUnits.fromSi(pt.FuelFlowPerEng));
+                std::size_t col = 0;
+                csv.setCell(row, col++, op.Name);
+                csv.setCell(row, col++, OperationTypes.toString(op.operationType()));
+                csv.setCell(row, col++, timeToUtcString(pt.Time));
+                csv.setCell(row, col++, FlightPhases.toString(pt.FlPhase));
+                csv.setCell(row, col++, set.DistanceUnits.fromSi(pt.CumulativeGroundDistance));
+                csv.setCell(row, col++, pt.Longitude);
+                csv.setCell(row, col++, pt.Latitude);
+                csv.setCell(row, col++, set.AltitudeUnits.fromSi(pt.AltitudeMsl));
+                csv.setCell(row, col++, set.SpeedUnits.fromSi(pt.TrueAirspeed));
+                csv.setCell(row, col++, set.SpeedUnits.fromSi(pt.Groundspeed));
+                csv.setCell(row, col++, set.ThrustUnits.fromSi(pt.CorrNetThrustPerEng));
+                csv.setCell(row, col++, pt.BankAngle);
+                csv.setCell(row, col++, set.FuelFlowUnits.fromSi(pt.FuelFlowPerEng));
                 ++row;
             }
         }
@@ -1517,6 +1522,7 @@ namespace GRAPE::IO::CSV {
             "Flights Doc29 Segmentation",
             "Tracks 4D Calculate Performance",
             "Tracks 4D Minimum Points",
+            "Tracks 4D Recalculate Time",
             "Tracks 4D Recalculate Cumulative Ground Distance",
             "Tracks 4D Recalculate Groundspeed",
             "Tracks 4D Recalculate Fuel Flow",
@@ -1563,12 +1569,13 @@ namespace GRAPE::IO::CSV {
 
                 csv.setCell(row, 13, static_cast<int>(spec.Tracks4dCalculatePerformance));
                 csv.setCell(row, 14, spec.Tracks4dMinimumPoints);
-                csv.setCell(row, 15, static_cast<int>(spec.Tracks4dRecalculateCumulativeGroundDistance));
-                csv.setCell(row, 16, static_cast<int>(spec.Tracks4dRecalculateGroundspeed));
-                csv.setCell(row, 17, static_cast<int>(spec.Tracks4dRecalculateFuelFlow));
+                csv.setCell(row, 15, static_cast<int>(spec.Tracks4dRecalculateTime));
+                csv.setCell(row, 16, static_cast<int>(spec.Tracks4dRecalculateCumulativeGroundDistance));
+                csv.setCell(row, 17, static_cast<int>(spec.Tracks4dRecalculateGroundspeed));
+                csv.setCell(row, 18, static_cast<int>(spec.Tracks4dRecalculateFuelFlow));
 
-                csv.setCell(row, 18, FuelFlowModelTypes.toString(spec.FuelFlowMdl));
-                csv.setCell(row, 19, static_cast<int>(spec.FuelFlowLTOAltitudeCorrection));
+                csv.setCell(row, 19, FuelFlowModelTypes.toString(spec.FuelFlowMdl));
+                csv.setCell(row, 20, static_cast<int>(spec.FuelFlowLTOAltitudeCorrection));
 
                 ++row;
             }
@@ -2087,6 +2094,7 @@ namespace GRAPE::IO::CSV {
         csv.setColumnNames(
             "Point Number",
             "Point Origin",
+            "Time",
             "Flight Phase",
             std::format("Cumulative Ground Distance ({})", set.DistanceUnits.shortName()),
             "Longitude",
@@ -2103,17 +2111,20 @@ namespace GRAPE::IO::CSV {
         for (auto it = PerfOut.begin(); it != PerfOut.end(); ++it)
         {
             const auto& [cumGroundDist, pt] = *it;
-            csv.setCell(row, 0, static_cast<int>(std::distance(PerfOut.begin(), it)));
-            csv.setCell(row, 1, PerformanceOutput::Origins.toString(pt.PtOrigin));
-            csv.setCell(row, 2, FlightPhases.toString(pt.FlPhase));
-            csv.setCell(row, 3, set.DistanceUnits.fromSi(cumGroundDist));
-            csv.setCell(row, 4, pt.Longitude);
-            csv.setCell(row, 5, pt.Latitude);
-            csv.setCell(row, 6, set.AltitudeUnits.fromSi(pt.AltitudeMsl));
-            csv.setCell(row, 7, set.SpeedUnits.fromSi(pt.TrueAirspeed));
-            csv.setCell(row, 8, set.SpeedUnits.fromSi(pt.Groundspeed));
-            csv.setCell(row, 9, set.ThrustUnits.fromSi(pt.CorrNetThrustPerEng));
-            csv.setCell(row, 10, set.FuelFlowUnits.fromSi(pt.FuelFlowPerEng));
+
+            std::size_t col = 0;
+            csv.setCell(row, col++, static_cast<int>(std::distance(PerfOut.begin(), it)));
+            csv.setCell(row, col++, PerformanceOutput::Origins.toString(pt.PtOrigin));
+            csv.setCell(row, col++, timeToUtcString(pt.Time));
+            csv.setCell(row, col++, FlightPhases.toString(pt.FlPhase));
+            csv.setCell(row, col++, set.DistanceUnits.fromSi(cumGroundDist));
+            csv.setCell(row, col++, pt.Longitude);
+            csv.setCell(row, col++, pt.Latitude);
+            csv.setCell(row, col++, set.AltitudeUnits.fromSi(pt.AltitudeMsl));
+            csv.setCell(row, col++, set.SpeedUnits.fromSi(pt.TrueAirspeed));
+            csv.setCell(row, col++, set.SpeedUnits.fromSi(pt.Groundspeed));
+            csv.setCell(row, col++, set.ThrustUnits.fromSi(pt.CorrNetThrustPerEng));
+            csv.setCell(row, col++, set.FuelFlowUnits.fromSi(pt.FuelFlowPerEng));
             ++row;
         }
 
@@ -2137,6 +2148,7 @@ namespace GRAPE::IO::CSV {
             "Type",
             "Point Number",
             "Point Origin",
+            "Time",
             "Flight Phase",
             std::format("Cumulative Ground Distance ({})", set.DistanceUnits.shortName()),
             "Longitude",
@@ -2156,23 +2168,25 @@ namespace GRAPE::IO::CSV {
             PerformanceOutput perfOut = PerfRunOut.arrivalOutput(op);
             for (auto it = perfOut.begin(); it != perfOut.end(); ++it)
             {
-                csv.setCell(row, 0, op.Name);
-                csv.setCell(row, 1, OperationTypes.toString(op.operationType()));
-                csv.setCell(row, 2, Operation::Types.toString(op.type()));
+                std::size_t col = 0;
+                csv.setCell(row, col++, op.Name);
+                csv.setCell(row, col++, OperationTypes.toString(op.operationType()));
+                csv.setCell(row, col++, Operation::Types.toString(op.type()));
 
                 const auto& [cumGroundDist, pt] = *it;
-                csv.setCell(row, 3, static_cast<int>(std::distance(perfOut.begin(), it)));
-                csv.setCell(row, 4, PerformanceOutput::Origins.toString(pt.PtOrigin));
-                csv.setCell(row, 5, FlightPhases.toString(pt.FlPhase));
-                csv.setCell(row, 6, set.DistanceUnits.fromSi(cumGroundDist));
-                csv.setCell(row, 7, pt.Longitude);
-                csv.setCell(row, 8, pt.Latitude);
-                csv.setCell(row, 9, set.AltitudeUnits.fromSi(pt.AltitudeMsl));
-                csv.setCell(row, 10, set.SpeedUnits.fromSi(pt.TrueAirspeed));
-                csv.setCell(row, 11, set.SpeedUnits.fromSi(pt.Groundspeed));
-                csv.setCell(row, 12, set.ThrustUnits.fromSi(pt.CorrNetThrustPerEng));
-                csv.setCell(row, 13, pt.BankAngle);
-                csv.setCell(row, 14, set.FuelFlowUnits.fromSi(pt.FuelFlowPerEng));
+                csv.setCell(row, col++, static_cast<int>(std::distance(perfOut.begin(), it)));
+                csv.setCell(row, col++, PerformanceOutput::Origins.toString(pt.PtOrigin));
+                csv.setCell(row, col++, timeToUtcString(pt.Time));
+                csv.setCell(row, col++, FlightPhases.toString(pt.FlPhase));
+                csv.setCell(row, col++, set.DistanceUnits.fromSi(cumGroundDist));
+                csv.setCell(row, col++, pt.Longitude);
+                csv.setCell(row, col++, pt.Latitude);
+                csv.setCell(row, col++, set.AltitudeUnits.fromSi(pt.AltitudeMsl));
+                csv.setCell(row, col++, set.SpeedUnits.fromSi(pt.TrueAirspeed));
+                csv.setCell(row, col++, set.SpeedUnits.fromSi(pt.Groundspeed));
+                csv.setCell(row, col++, set.ThrustUnits.fromSi(pt.CorrNetThrustPerEng));
+                csv.setCell(row, col++, pt.BankAngle);
+                csv.setCell(row, col++, set.FuelFlowUnits.fromSi(pt.FuelFlowPerEng));
                 ++row;
             }
         }
@@ -2183,23 +2197,25 @@ namespace GRAPE::IO::CSV {
             PerformanceOutput perfOut = PerfRunOut.departureOutput(op);
             for (auto it = perfOut.begin(); it != perfOut.end(); ++it)
             {
-                csv.setCell(row, 0, op.Name);
-                csv.setCell(row, 1, OperationTypes.toString(op.operationType()));
-                csv.setCell(row, 2, Operation::Types.toString(op.type()));
+                std::size_t col = 0;
+                csv.setCell(row, col++, op.Name);
+                csv.setCell(row, col++, OperationTypes.toString(op.operationType()));
+                csv.setCell(row, col++, Operation::Types.toString(op.type()));
 
                 const auto& [cumGroundDist, pt] = *it;
-                csv.setCell(row, 3, static_cast<int>(std::distance(perfOut.begin(), it)));
-                csv.setCell(row, 4, PerformanceOutput::Origins.toString(pt.PtOrigin));
-                csv.setCell(row, 5, FlightPhases.toString(pt.FlPhase));
-                csv.setCell(row, 6, set.DistanceUnits.fromSi(cumGroundDist));
-                csv.setCell(row, 7, pt.Longitude);
-                csv.setCell(row, 8, pt.Latitude);
-                csv.setCell(row, 9, set.AltitudeUnits.fromSi(pt.AltitudeMsl));
-                csv.setCell(row, 10, set.SpeedUnits.fromSi(pt.TrueAirspeed));
-                csv.setCell(row, 11, set.SpeedUnits.fromSi(pt.Groundspeed));
-                csv.setCell(row, 12, set.ThrustUnits.fromSi(pt.CorrNetThrustPerEng));
-                csv.setCell(row, 13, pt.BankAngle);
-                csv.setCell(row, 14, set.FuelFlowUnits.fromSi(pt.FuelFlowPerEng));
+                csv.setCell(row, col++, static_cast<int>(std::distance(perfOut.begin(), it)));
+                csv.setCell(row, col++, PerformanceOutput::Origins.toString(pt.PtOrigin));
+                csv.setCell(row, col++, timeToUtcString(pt.Time));
+                csv.setCell(row, col++, FlightPhases.toString(pt.FlPhase));
+                csv.setCell(row, col++, set.DistanceUnits.fromSi(cumGroundDist));
+                csv.setCell(row, col++, pt.Longitude);
+                csv.setCell(row, col++, pt.Latitude);
+                csv.setCell(row, col++, set.AltitudeUnits.fromSi(pt.AltitudeMsl));
+                csv.setCell(row, col++, set.SpeedUnits.fromSi(pt.TrueAirspeed));
+                csv.setCell(row, col++, set.SpeedUnits.fromSi(pt.Groundspeed));
+                csv.setCell(row, col++, set.ThrustUnits.fromSi(pt.CorrNetThrustPerEng));
+                csv.setCell(row, col++, pt.BankAngle);
+                csv.setCell(row, col++, set.FuelFlowUnits.fromSi(pt.FuelFlowPerEng));
                 ++row;
             }
         }

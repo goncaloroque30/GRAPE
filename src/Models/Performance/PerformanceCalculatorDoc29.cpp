@@ -128,6 +128,9 @@ namespace GRAPE {
         // Fuel Flow
         m_FuelFlow->calculate(FlightArr, perfOutput);
 
+        // Recalculate time as time not part of Doc29
+        perfOutput.recalculateTime(FlightArr.Time);
+
         // Segmentation and Filtering
         const std::size_t deletedCount = segmentAndFilter(FlightArr, perfOutput);
 
@@ -311,6 +314,9 @@ namespace GRAPE {
 
         // Fuel Flow
         m_FuelFlow->calculate(FlightDep, perfOutput);
+
+        // Recalculate time as time not part of Doc29
+        perfOutput.recalculateTime(FlightDep.Time);
 
         // Segmentation and Filtering
         const std::size_t deletedCount = segmentAndFilter(FlightDep, perfOutput);

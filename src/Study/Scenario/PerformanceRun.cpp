@@ -20,7 +20,7 @@ namespace GRAPE {
             valid = false;
         }
 
-        if (PerfRunSpec.Atmospheres.empty())
+        if ((PerfRunSpec.FlightsPerformanceMdl != PerformanceModel::None || PerfRunSpec.Tracks4dCalculatePerformance) && PerfRunSpec.Atmospheres.empty())
         {
             Log::dataLogic()->error("Running performance run '{}' of scenario '{}'. At least one atmosphere must be provided.", Name, parentScenario().Name);
             valid = false;

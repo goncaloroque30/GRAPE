@@ -68,7 +68,9 @@ namespace GRAPE {
         m_TotalEmissions += EmissionsOpOut.totalEmissions();
 
         // Totals in DB
+        m_Db.beginTransaction();
         m_Db.update(Schema::emissions_run_output, { 3, 4, 5, 6, 7, 8 }, std::make_tuple(m_TotalFuel, m_TotalEmissions.HC, m_TotalEmissions.CO, m_TotalEmissions.NOx, m_TotalEmissions.nvPM, m_TotalEmissions.nvPMNumber), { 0, 1, 2 }, std::make_tuple(parentScenario().Name, parentPerformanceRun().Name, parentEmissionsRun().Name));
+        m_Db.commitTransaction();
     }
 
     void EmissionsRunOutput::clear() {

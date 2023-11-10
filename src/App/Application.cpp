@@ -1193,7 +1193,7 @@ namespace GRAPE {
         ImGui::OpenPopup("##AsyncTask");
 
         ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-        ImGui::SetNextWindowSize(ImVec2(600.0f, 100.0f));
+        ImGui::SetNextWindowSize(ImVec2(600.0f, 150.0f));
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
         if (ImGui::BeginPopupModal("##AsyncTask", nullptr, ImGuiWindowFlags_NoDecoration))
@@ -1364,6 +1364,8 @@ namespace GRAPE {
                 "    [-c]   - Create a GRAPE study located at the path specified by the following argument.\n"
                 "    [-o]   - Open a GRAPE study located at the path specified by the following argument.\n"
                 "    [-anp] - Import the ANP database at the folder path specified by the following argument. Use only in conjunction with -c or -o.\n"
+                "    [-fi]  - Import all .csv files from the path specified by the following argument.\n"
+                "    [-fe]  - Export all .csv files from the path specified by the following argument.\n"
                 "    [-d]   - Delete all outputs from the study. Use only in conjunction with -o.\n"
                 "    [-rp]  - Start the performance run specified by the following argument as <scenario name>-<performance run name>. Use only in conjunction with -o.\n"
                 "    [-rn]  - Start the noise run specified by the following argument as <scenario name>-<performance run name>-<noise run name>. Use only in conjunction with -o.\n"
@@ -1411,22 +1413,68 @@ namespace GRAPE {
 
         // -anp -> followed by the path to an ANP folder
         if (m_CommandLineArgs.argPassed("-anp"))
+        {
             try
-        {
-            if (!m_Study->valid())
-                throw GrapeException(CommandLineIncorrectUsage);
+            {
+                if (!m_Study->valid())
+                    throw GrapeException(CommandLineIncorrectUsage);
 
-            const int valIndex = m_CommandLineArgs.argIndex("-anp") + 1;
-            if (!m_CommandLineArgs.isValueArg(valIndex))
-                throw GrapeException(CommandLineIncorrectUsage);
+                const int valIndex = m_CommandLineArgs.argIndex("-anp") + 1;
+                if (!m_CommandLineArgs.isValueArg(valIndex))
+                    throw GrapeException(CommandLineIncorrectUsage);
 
-            const auto& path = m_CommandLineArgs.arg(valIndex);
-            Log::io()->info("Importing ANP database from '{}'.", path);
-            IO::AnpImport importer(path);
+                const auto& path = m_CommandLineArgs.arg(valIndex);
+                Log::io()->info("Importing ANP database from '{}'.", path);
+                IO::AnpImport importer(path);
+            }
+            catch (const std::exception& err)
+            {
+                Log::core()->error(err.what());
+            }
         }
-        catch (const std::exception& err)
+
+        // -fi -> followed by the path to the folder with .csv files
+        if (m_CommandLineArgs.argPassed("-fi"))
         {
-            Log::core()->error(err.what());
+            try
+            {
+                if (!m_Study->valid())
+                    throw GrapeException(CommandLineIncorrectUsage);
+
+                const int valIndex = m_CommandLineArgs.argIndex("-fi") + 1;
+                if (!m_CommandLineArgs.isValueArg(valIndex))
+                    throw GrapeException(CommandLineIncorrectUsage);
+
+                const auto& path = m_CommandLineArgs.arg(valIndex);
+                Log::io()->info("Importing .csv files from '{}'.", path);
+                IO::CSV::importAllFiles(path);
+            }
+            catch (const std::exception& err)
+            {
+                Log::core()->error(err.what());
+            }
+        }
+
+        // -fe -> followed by the path to the folder with .csv files
+        if (m_CommandLineArgs.argPassed("-fi"))
+        {
+            try
+            {
+                if (!m_Study->valid())
+                    throw GrapeException(CommandLineIncorrectUsage);
+
+                const int valIndex = m_CommandLineArgs.argIndex("-fe") + 1;
+                if (!m_CommandLineArgs.isValueArg(valIndex))
+                    throw GrapeException(CommandLineIncorrectUsage);
+
+                const auto& path = m_CommandLineArgs.arg(valIndex);
+                Log::io()->info("Exporting .csv files to '{}'.", path);
+                IO::CSV::importAllFiles(path);
+            }
+            catch (const std::exception& err)
+            {
+                Log::core()->error(err.what());
+            }
         }
 
         // -d -> Delete all outputs from study

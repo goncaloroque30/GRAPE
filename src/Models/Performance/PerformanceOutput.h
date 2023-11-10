@@ -35,6 +35,7 @@ namespace GRAPE {
         */
         struct Point {
             PointOrigin PtOrigin;
+            TimePoint Time;
             FlightPhase FlPhase;
             double Longitude, Latitude;
             double AltitudeMsl;
@@ -70,15 +71,26 @@ namespace GRAPE {
         [[nodiscard]] std::size_t size() const { return m_Output.size(); }
 
         /**
-        * @brief Adds a point to the container.
+        * @brief Adds a point to the container with TimePoint.
         * @return The newly created Point and true or the already existing Point and false.
         */
-        std::pair<Point&, bool> addPoint(PointOrigin PtOrigin, FlightPhase FlPhase, double CumulativeGroundDistance, double Longitude, double Latitude, double AltitudeMsl, double TrueAirspeed, double Groundspeed, double Thrust, double BankAngle, double FuelFlowPerEng = Constants::NaN);
+        std::pair<Point&, bool> addPoint(PointOrigin PtOrigin, TimePoint Time, FlightPhase FlPhase, double CumulativeGroundDistance, double Longitude, double Latitude, double AltitudeMsl, double TrueAirspeed, double Groundspeed, double CorrectedNetThrustPerEng, double BankAngle, double FuelFlowPerEng = Constants::NaN);
+
+        /**
+        * @brief Adds a point to the container without TimePoint.
+        * @return The newly created Point and true or the already existing Point and false.
+        */
+        std::pair<Point&, bool> addPoint(PointOrigin PtOrigin, FlightPhase FlPhase, double CumulativeGroundDistance, double Longitude, double Latitude, double AltitudeMsl, double TrueAirspeed, double Groundspeed, double CorrectedNetThrustPerEng, double BankAngle, double FuelFlowPerEng = Constants::NaN);
 
         /**
         * @brief Delete all points from the container.
         */
         void clear();
+
+        /**
+        * @brief Recalculate Time with a StartTime based on ground distance and groundspeed
+        */
+        void recalculateTime(TimePoint StartTime);
 
         /**
         * @brief Go through the container and create new points between two adjacent points if their ground speed delta is smaller than SpeedDeltaMinimum.

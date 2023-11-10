@@ -60,17 +60,20 @@ namespace GRAPE {
             {
                 const auto i = it - Op.begin();
                 auto& pt = *it;
-                stmt.bind(2, static_cast<int>(i + 1));
-                stmt.bind(3, FlightPhases.toString(pt.FlPhase));
-                stmt.bind(4, pt.CumulativeGroundDistance);
-                stmt.bind(5, pt.Longitude);
-                stmt.bind(6, pt.Latitude);
-                stmt.bind(7, pt.AltitudeMsl);
-                stmt.bind(8, pt.TrueAirspeed);
-                stmt.bind(9, pt.Groundspeed);
-                stmt.bind(10, pt.CorrNetThrustPerEng);
-                stmt.bind(11, pt.BankAngle);
-                stmt.bind(12, pt.FuelFlowPerEng);
+
+                std::size_t col = 2;
+                stmt.bind(col++, static_cast<int>(i + 1));
+                stmt.bind(col++, timeToUtcString(pt.Time));
+                stmt.bind(col++, FlightPhases.toString(pt.FlPhase));
+                stmt.bind(col++, pt.CumulativeGroundDistance);
+                stmt.bind(col++, pt.Longitude);
+                stmt.bind(col++, pt.Latitude);
+                stmt.bind(col++, pt.AltitudeMsl);
+                stmt.bind(col++, pt.TrueAirspeed);
+                stmt.bind(col++, pt.Groundspeed);
+                stmt.bind(col++, pt.CorrNetThrustPerEng);
+                stmt.bind(col++, pt.BankAngle);
+                stmt.bind(col++, pt.FuelFlowPerEng);
                 stmt.step();
                 stmt.reset();
             }
@@ -577,10 +580,10 @@ namespace GRAPE {
                 const std::string name = stmtFl.getColumn(0);
                 const std::string opName = stmtFl.getColumn(1);
                 const OperationType op = OperationTypes.fromString(opName);
-                TimePoint taiTime = std::chrono::round<Duration>(std::chrono::tai_clock::now());
-                const auto taiTimeOpt = utcStringToTime(stmtFl.getColumn(5));
-                if (taiTimeOpt)
-                    taiTime = taiTimeOpt.value();
+                TimePoint time = std::chrono::round<Duration>(std::chrono::tai_clock::now());
+                const auto timeOpt = utcStringToTime(stmtFl.getColumn(5));
+                if (timeOpt)
+                    time = timeOpt.value();
                 else
                     Log::database()->warn("Loading flight '{}'. Invalid time.", name);
 
@@ -600,7 +603,7 @@ namespace GRAPE {
                             const std::string rteName = stmtFl.getColumn(4);
                             flightArr.setRoute(m_Airports(aptName).Runways(rwyName).ArrivalRoutes(rteName).get());
                         }
-                        flightArr.Time = taiTime;
+                        flightArr.Time = time;
                         flightArr.Count = count;
                         flightArr.Weight = weight;
 
@@ -636,7 +639,7 @@ namespace GRAPE {
                             const std::string rteName = stmtFl.getColumn(4);
                             flightDep.setRoute(m_Airports(aptName).Runways(rwyName).DepartureRoutes(rteName).get());
                         }
-                        flightDep.Time = taiTime;
+                        flightDep.Time = time;
                         flightDep.Count = count;
                         flightDep.Weight = weight;
 
@@ -683,12 +686,12 @@ namespace GRAPE {
                 const std::string name = stmt.getColumn(0);
                 const OperationType op = OperationTypes.fromString(stmt.getColumn(1));
 
-                TimePoint taiTime = std::chrono::round<Duration>(std::chrono::tai_clock::now());
-                const auto taiTimeOpt = utcStringToTime(stmt.getColumn(2).getString());
-                if (taiTimeOpt)
-                    taiTime = taiTimeOpt.value();
+                TimePoint time = now();
+                const auto timeOpt = utcStringToTime(stmt.getColumn(2).getString());
+                if (timeOpt)
+                    time = timeOpt.value();
                 else
-                    Log::database()->warn("Loading flight '{}'. Invalid time.");
+                    Log::database()->warn("Loading Track 4D '{}'. Invalid time.", name);
 
                 double count = stmt.getColumn(3);
                 const Aircraft& acft = m_Aircrafts(stmt.getColumn(4));
@@ -697,13 +700,13 @@ namespace GRAPE {
                 {
                 case OperationType::Arrival:
                     {
-                        auto [track4dArr, added] = m_Track4dArrivals.add(name, name, acft, taiTime, count);
+                        auto [track4dArr, added] = m_Track4dArrivals.add(name, name, acft, time, count);
                         m_Blocks.operationBlock(track4dArr);
                         break;
                     }
                 case OperationType::Departure:
                     {
-                        auto [track4dDep, added] = m_Track4dDepartures.add(name, name, acft, taiTime, count);
+                        auto [track4dDep, added] = m_Track4dDepartures.add(name, name, acft, time, count);
                         m_Blocks.operationBlock(track4dDep);
                         break;
                     }
@@ -727,22 +730,31 @@ namespace GRAPE {
         std::scoped_lock lck(Tracks4dLoader.Mutex);
 
         Tracks4dLoader.Db.beginTransaction();
-        Statement stmt(Tracks4dLoader.Db, Schema::operations_tracks_4d_points.querySelect({ 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 }, { 0, 1 }, { 2 }));
+        Statement stmt(Tracks4dLoader.Db, Schema::operations_tracks_4d_points.querySelect({}, { 0, 1 }, { 2 }));
         stmt.bindValues(primaryKey(Op));
         stmt.step();
         while (stmt.hasRow())
         {
-            const FlightPhase flPhase = FlightPhases.fromString(stmt.getColumn(0));
-            const double cumGroundDist = stmt.getColumn(1);
-            const double lon = stmt.getColumn(2);
-            const double lat = stmt.getColumn(3);
-            const double altMsl = stmt.getColumn(4);
-            const double trueAirspeed = stmt.getColumn(5);
-            const double groundspeed = stmt.getColumn(6);
-            const double corrNetThrustPerEng = stmt.getColumn(7);
-            const double bankAngle = stmt.getColumn(8);
-            const double fuelFlowPerEng = stmt.getColumn(9);
-            Op.addPoint(flPhase, cumGroundDist, lon, lat, altMsl, trueAirspeed, groundspeed, corrNetThrustPerEng, bankAngle, fuelFlowPerEng);
+            std::size_t col = 3;
+
+            TimePoint time = now();
+            const auto timeOpt = utcStringToTime(stmt.getColumn(col++).getString());
+            if (timeOpt)
+                time = timeOpt.value();
+            else
+                Log::database()->warn("Loading point {} of Track 4D '{}'. Invalid time.", stmt.getColumn(2).getInt(), Op.Name);
+
+            const FlightPhase flPhase = FlightPhases.fromString(stmt.getColumn(col++));
+            const double cumGroundDist = stmt.getColumn(col++);
+            const double lon = stmt.getColumn(col++);
+            const double lat = stmt.getColumn(col++);
+            const double altMsl = stmt.getColumn(col++);
+            const double trueAirspeed = stmt.getColumn(col++);
+            const double groundspeed = stmt.getColumn(col++);
+            const double corrNetThrustPerEng = stmt.getColumn(col++);
+            const double bankAngle = stmt.getColumn(col++);
+            const double fuelFlowPerEng = stmt.getColumn(col++);
+            Op.addPoint(time, flPhase, cumGroundDist, lon, lat, altMsl, trueAirspeed, groundspeed, corrNetThrustPerEng, bankAngle, fuelFlowPerEng);
 
             stmt.step();
         }

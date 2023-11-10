@@ -57,7 +57,7 @@ namespace GRAPE {
                 }
             }
 
-            auto [newPt, added] = perfOutput.addPoint(PerformanceOutput::PointOrigin::Track4d, pt.FlPhase, cumGroundDist, pt.Longitude, pt.Latitude, pt.AltitudeMsl, pt.TrueAirspeed, groundspeed, pt.CorrNetThrustPerEng, pt.BankAngle, pt.FuelFlowPerEng);
+            auto [newPt, added] = perfOutput.addPoint(PerformanceOutput::PointOrigin::Track4d, pt.Time, pt.FlPhase, cumGroundDist, pt.Longitude, pt.Latitude, pt.AltitudeMsl, pt.TrueAirspeed, groundspeed, pt.CorrNetThrustPerEng, pt.BankAngle, pt.FuelFlowPerEng);
 
             if (!added)
                 Log::models()->warn("Calculating performance output for arrival track 4D '{}'. Point at index {} overlaps previous point and will not be added.", Track4dArr.Name, Track4dArr.size() - std::distance(Track4dArr.rbegin(), it));
@@ -65,6 +65,9 @@ namespace GRAPE {
 
         if (m_Spec.Tracks4dRecalculateFuelFlow)
             m_FuelFlow->calculate(Track4dArr, perfOutput);
+
+        if (m_Spec.Tracks4dRecalculateTime)
+            perfOutput.recalculateTime(Track4dArr.Time);
 
         // Segmentation and Filtering
         const std::size_t deletedCount = segmentAndFilter(Track4dArr, perfOutput);
@@ -135,7 +138,7 @@ namespace GRAPE {
                 }
             }
 
-            auto [newPt, added] = perfOutput.addPoint(PerformanceOutput::PointOrigin::Track4d, pt.FlPhase, cumGroundDist, pt.Longitude, pt.Latitude, pt.AltitudeMsl, pt.TrueAirspeed, groundspeed, pt.CorrNetThrustPerEng, pt.BankAngle, pt.FuelFlowPerEng);
+            auto [newPt, added] = perfOutput.addPoint(PerformanceOutput::PointOrigin::Track4d, pt.Time, pt.FlPhase, cumGroundDist, pt.Longitude, pt.Latitude, pt.AltitudeMsl, pt.TrueAirspeed, groundspeed, pt.CorrNetThrustPerEng, pt.BankAngle, pt.FuelFlowPerEng);
 
             if (!added)
                 Log::models()->warn("Calculating performance output for departure track 4D '{}'. Point at index {} overlaps previous point and will not be added.", Track4dDep.Name, std::distance(Track4dDep.begin(), it) + 1);
@@ -143,6 +146,9 @@ namespace GRAPE {
 
         if (m_Spec.Tracks4dRecalculateFuelFlow)
             m_FuelFlow->calculate(Track4dDep, perfOutput);
+
+        if (m_Spec.Tracks4dRecalculateTime)
+            perfOutput.recalculateTime(Track4dDep.Time);
 
         // Segmentation and Filtering
         const std::size_t deletedCount = segmentAndFilter(Track4dDep, perfOutput);

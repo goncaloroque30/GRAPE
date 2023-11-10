@@ -64,23 +64,32 @@ namespace GRAPE {
         PerformanceOutput perfOutput;
         m_Db.beginTransaction();
 
-        Statement stmt(m_Db, Schema::performance_run_output_points.querySelect({ 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }, { 0, 1, 2, 3, 4 }, { 5 }));
+        Statement stmt(m_Db, Schema::performance_run_output_points.querySelect({ 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 }, { 0, 1, 2, 3, 4 }, { 5 }));
         stmt.bindValues(m_PerfRun.parentScenario().Name, m_PerfRun.Name, Op.Name, OperationTypes.toString(Op.operationType()), Operation::Types.toString(Op.type()));
         stmt.step();
         while (stmt.hasRow())
         {
-            const PerformanceOutput::PointOrigin origin = PerformanceOutput::Origins.fromString(stmt.getColumn(0));
-            const FlightPhase flPhase = FlightPhases.fromString(stmt.getColumn(1));
-            const double cumGroundDist = stmt.getColumn(2);
-            const double lon = stmt.getColumn(3);
-            const double lat = stmt.getColumn(4);
-            const double altMsl = stmt.getColumn(5);
-            const double trueAirspeed = stmt.getColumn(6);
-            const double groundSpeed = stmt.getColumn(7);
-            const double corrNetThrustPerEng = stmt.getColumn(8);
-            const double bankAngle = stmt.getColumn(9);
-            const double fuelFlowPerEng = stmt.getColumn(10);
-            perfOutput.addPoint(origin, flPhase, cumGroundDist, lon, lat, altMsl, trueAirspeed, groundSpeed, corrNetThrustPerEng, bankAngle, fuelFlowPerEng);
+            std::size_t col = 0;
+
+            const PerformanceOutput::PointOrigin origin = PerformanceOutput::Origins.fromString(stmt.getColumn(col++));
+            TimePoint time = now();
+
+            const auto timeOpt = utcStringToTime(stmt.getColumn(col++).getString());
+            if (timeOpt)
+                time = timeOpt.value();
+            GRAPE_ASSERT(timeOpt);
+
+            const FlightPhase flPhase = FlightPhases.fromString(stmt.getColumn(col++));
+            const double cumGroundDist = stmt.getColumn(col++);
+            const double lon = stmt.getColumn(col++);
+            const double lat = stmt.getColumn(col++);
+            const double altMsl = stmt.getColumn(col++);
+            const double trueAirspeed = stmt.getColumn(col++);
+            const double groundSpeed = stmt.getColumn(col++);
+            const double corrNetThrustPerEng = stmt.getColumn(col++);
+            const double bankAngle = stmt.getColumn(col++);
+            const double fuelFlowPerEng = stmt.getColumn(col++);
+            perfOutput.addPoint(origin, time, flPhase, cumGroundDist, lon, lat, altMsl, trueAirspeed, groundSpeed, corrNetThrustPerEng, bankAngle, fuelFlowPerEng);
             stmt.step();
         }
         m_Db.commitTransaction();
@@ -112,6 +121,7 @@ namespace GRAPE {
                 Operation::Types.toString(Op.type()),
                 static_cast<int>(std::distance(PerfOutput.begin(), it)) + 1,
                 PerformanceOutput::Origins.toString(pt.PtOrigin),
+                timeToUtcString(pt.Time),
                 FlightPhases.toString(pt.FlPhase),
                 cumGroundDist,
                 pt.Longitude,

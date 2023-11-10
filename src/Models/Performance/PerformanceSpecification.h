@@ -32,6 +32,7 @@ namespace GRAPE {
         // Tracks 4D
         bool Tracks4dCalculatePerformance = true;
         int Tracks4dMinimumPoints = 1;
+        bool Tracks4dRecalculateTime = false;
         bool Tracks4dRecalculateCumulativeGroundDistance = false;
         bool Tracks4dRecalculateGroundspeed = false;
         bool Tracks4dRecalculateFuelFlow = false;

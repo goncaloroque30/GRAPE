@@ -7,6 +7,14 @@
 #include "Operations.h"
 
 namespace GRAPE {
+    void Track4d::Point::setTime(const std::string& UtcTimeStr) {
+        const auto timeOpt = utcStringToTime(UtcTimeStr);
+        if (timeOpt)
+            Time = timeOpt.value();
+        else
+            throw GrapeException(std::format("Invalid track 4D point time '{}'.", UtcTimeStr));
+    }
+
     void Track4d::Point::setLongitude(double LongitudeIn) {
         if (!(LongitudeIn >= -180.0 && LongitudeIn <= 180.0))
             throw GrapeException("Longitude must be between -180.0 and 180.0.");
@@ -50,7 +58,7 @@ namespace GRAPE {
         FuelFlowPerEng = FuelFlowPerEngIn;
     }
 
-    void Track4d::addPoint(FlightPhase FlPhase, double CumulativeGroundDistance, double Longitude, double Latitude, double AltitudeMsl, double TrueAirspeed, double Groundspeed, double CorrNetThrustPerEng, double BankAngle, double FuelFlowPerEng) noexcept {
+    void Track4d::addPoint(TimePoint Time, FlightPhase FlPhase, double CumulativeGroundDistance, double Longitude, double Latitude, double AltitudeMsl, double TrueAirspeed, double Groundspeed, double CorrNetThrustPerEng, double BankAngle, double FuelFlowPerEng) noexcept {
         GRAPE_ASSERT(Longitude >= -180.0 && Longitude <= 180.0);
         GRAPE_ASSERT(Latitude >= -90.0 && Latitude <= 90.0);
         GRAPE_ASSERT(TrueAirspeed >= 0.0);
@@ -58,7 +66,7 @@ namespace GRAPE {
         GRAPE_ASSERT(BankAngle >= -90.0 && BankAngle <= 90.0);
         GRAPE_ASSERT(FuelFlowPerEng >= 0.0);
 
-        m_Points.emplace_back(FlPhase, CumulativeGroundDistance, Longitude, Latitude, AltitudeMsl, TrueAirspeed, Groundspeed, CorrNetThrustPerEng, BankAngle, FuelFlowPerEng);
+        m_Points.emplace_back(Time, FlPhase, CumulativeGroundDistance, Longitude, Latitude, AltitudeMsl, TrueAirspeed, Groundspeed, CorrNetThrustPerEng, BankAngle, FuelFlowPerEng);
     }
 
     void Track4d::addPoint(const Point& Pt) noexcept {
